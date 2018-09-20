@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+"""Lint contracts defined with icontract library."""
+
+import argparse
+import pathlib
+import sys
+
+import icontract_lint
+
+
+def main() -> None:
+    """"
+    Main routine
+    """
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--dont_panic", help="Retrun a zero code even if there were errors.", action='store_true')
+    parser.add_argument("--format", help="Specify the output format.", default='verbose', choices=['verbose', 'json'])
+    parser.add_argument("paths", help="Specify paths to check (directories and files).", nargs="+")
+    args = parser.parse_args()
+
+    assert isinstance(args.paths, list)
+    assert all(isinstance(pth, str) for pth in args.paths)
+
+    a_format = str(args.format)
+
+    paths = [pathlib.Path(pth) for pth in args.paths]
+
+    errors = icontract_lint.check_paths(paths=paths)
+
+    if a_format == 'verbose':
+        icontract_lint.output_verbose(errors=errors, stream=sys.stdout)
+    elif a_format == 'json':
+        icontract_lint.output_json(errors=errors, stream=sys.stdout)
+    else:
+        raise NotImplementedError("Unhandled format: {}".format(a_format))
+
+
+if __name__ == "__main__":
+    main()
