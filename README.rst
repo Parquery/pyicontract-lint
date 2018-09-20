@@ -44,7 +44,7 @@ The following checks are performed:
 
 Usage
 =====
-Pyicontract-lint parses the code and tries to infer the imported modules and functions using
+Pyicontract-lint parses the code and infers the imported modules and functions using
 `astroid library <https://github.com/PyCQA/astroid>`_. Hence you need to make sure that imported modules are on your
 ``PYTHONPATH`` before you invoke pyicontract-lint.
 
@@ -56,8 +56,7 @@ Once you set up the environment, invoke pyicontract-lint with a list of position
         /path/to/some/directory/some-file.py \
         /path/to/some/directory/another-file.py
 
-You can also invoke it on directories. Pyicontract-lint will recursively search for ``*.py`` files (including the
-subdirectories) and verify the files:
+You can invoke it on directories as well. Pyicontract-lint will recursively search for ``*.py`` files and verify them:
 
 .. code-block:: bash
 
