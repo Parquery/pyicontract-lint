@@ -3,6 +3,7 @@ import collections
 import enum
 import json
 import pathlib
+import re
 from typing import Set, List, Mapping, Optional, TextIO, Any
 
 import astroid
@@ -341,6 +342,9 @@ class _LintVisitor(_AstroidVisitor):
             self.visit(child)
 
 
+_DISABLED_DIRECTIVE_RE = re.compile(r'^\s*#\s*pyicontract-lint\s*:\s*disabled\s*$')
+
+
 @icontract.pre(lambda path: path.is_file())
 def check_file(path: pathlib.Path) -> List[Error]:
     """
@@ -350,6 +354,10 @@ def check_file(path: pathlib.Path) -> List[Error]:
     :return: list of lint errors
     """
     text = path.read_text()
+
+    for line in text.splitlines():
+        if _DISABLED_DIRECTIVE_RE.match(line):
+            return []
 
     modname = ".".join(astroid.modutils.modpath_from_file(filename=path.as_posix()))
 

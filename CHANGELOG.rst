@@ -1,3 +1,7 @@
+1.1.0
+=====
+* Ignore files with ``# pyicontract-lint=disabled``
+
 1.0.2
 =====
 * Added ``--version`` command-line argument

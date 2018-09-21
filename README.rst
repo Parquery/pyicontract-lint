@@ -82,6 +82,8 @@ to have a zero return code even though one or more checks failed:
         --dont_panic \
         /path/to/some/directory
 
+To disable any pyicontract-lint checks on a file, add ``# pyicontract-lint: disabled`` on a separate line to the file.
+This is useful when you recursively lint files in a directory and want to exclude certain files.
 
 Module ``icontract_lint``
 -------------------------
