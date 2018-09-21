@@ -116,6 +116,26 @@ class TestCheckFile(unittest.TestCase):
 
                 self.assertListEqual([], errors)
 
+    def test_disabled(self):
+        text = textwrap.dedent("""\
+                        from icontract import pre
+                        
+                        # pyicontract-lint: disabled
+                        
+                        @pre(lambda x: x > 0)
+                        def some_func(y: int) -> int:
+                            return y
+                        """)
+
+        with temppathlib.TemporaryDirectory() as tmp:
+            pth = tmp.path / "some_module.py"
+            pth.write_text(text)
+
+            with sys_path_with(tmp.path):
+                errors = icontract_lint.check_file(path=pth)
+
+                self.assertListEqual([], errors)
+
     def test_pre_invalid_arg(self):
         text = textwrap.dedent("""\
                 from icontract import pre
