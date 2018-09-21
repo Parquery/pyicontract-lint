@@ -12,6 +12,7 @@ import temppathlib
 import icontract_lint.main
 
 # pylint: disable=missing-docstring
+import pyicontract_lint_meta
 
 
 class TestParseArgs(unittest.TestCase):
@@ -124,6 +125,15 @@ class TestMain(unittest.TestCase):
                 retcode = icontract_lint.main._main(args=args, stream=stream)
 
                 self.assertEqual(0, retcode)
+
+    def test_version(self):
+        buf = io.StringIO()
+        stream = cast(TextIO, buf)
+        args = icontract_lint.main.parse_args(sys_argv=["some-executable.py", "--version"])
+
+        retcode = icontract_lint.main._main(args=args, stream=stream)
+        self.assertEqual(0, retcode)
+        self.assertEqual('{}\n'.format(pyicontract_lint_meta.__version__), buf.getvalue())
 
 
 if __name__ == '__main__':
