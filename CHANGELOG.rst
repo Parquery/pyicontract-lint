@@ -1,3 +1,7 @@
+1.0.2
+=====
+* Added ``--version`` command-line argument
+
 1.0.1
 =====
 * Added building PEX to tox
