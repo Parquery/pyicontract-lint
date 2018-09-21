@@ -359,7 +359,10 @@ def check_file(path: pathlib.Path) -> List[Error]:
         if _DISABLED_DIRECTIVE_RE.match(line):
             return []
 
-    modname = ".".join(astroid.modutils.modpath_from_file(filename=path.as_posix()))
+    try:
+        modname = ".".join(astroid.modutils.modpath_from_file(filename=path.as_posix()))
+    except ImportError:
+        modname = '<unknown module>'
 
     try:
         tree = astroid.parse(code=text, module_name=modname, path=path.as_posix())
