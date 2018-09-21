@@ -9,6 +9,7 @@ import sys
 from typing import List, Any, TextIO
 
 import icontract_lint
+import pyicontract_lint_meta
 
 
 class Args:
@@ -19,9 +20,10 @@ class Args:
         assert isinstance(args.paths, list)
         assert all(isinstance(pth, str) for pth in args.paths)
 
-        self.format = str(args.format)
-        self.paths = [pathlib.Path(pth) for pth in args.paths]
         self.dont_panic = bool(args.dont_panic)
+        self.format = str(args.format)
+        self.version = bool(args.version)
+        self.paths = [pathlib.Path(pth) for pth in args.paths]
 
 
 def parse_args(sys_argv: List[str]) -> Args:
@@ -29,7 +31,8 @@ def parse_args(sys_argv: List[str]) -> Args:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dont_panic", help="Retrun a zero code even if there were errors.", action='store_true')
     parser.add_argument("--format", help="Specify the output format.", default='verbose', choices=['verbose', 'json'])
-    parser.add_argument("paths", help="Specify paths to check (directories and files).", nargs="+")
+    parser.add_argument("--version", help="Display the version and return immediately", action='store_true')
+    parser.add_argument("paths", help="Specify paths to check (directories and files).", nargs="*")
 
     args = parser.parse_args(sys_argv[1:])
 
@@ -38,6 +41,10 @@ def parse_args(sys_argv: List[str]) -> Args:
 
 def _main(args: Args, stream: TextIO) -> int:
     """Execute the main routine."""
+    if args.version:
+        stream.write("{}\n".format(pyicontract_lint_meta.__version__))
+        return 0
+
     errors = icontract_lint.check_paths(paths=args.paths)
 
     if args.format == 'verbose':
