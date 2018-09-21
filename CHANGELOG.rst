@@ -1,3 +1,8 @@
+1.1.1
+=====
+* ``ImportError`` is ignored if module of the file could not be figured out (*e.g.* when the ``__init__.py`` is
+  missing in the directory which is often the case for the scripts).
+
 1.1.0
 =====
 * Ignore files with ``# pyicontract-lint=disabled``
