@@ -29,11 +29,19 @@ The following checks are performed:
 +=======================================================================================+======================+
 | A preconditions expects a subset of function's arguments.                             | pre-invalid-arg      |
 +---------------------------------------------------------------------------------------+----------------------+
+| A snapshot expects at most an argument element of the function's arguments.           | snapshot-invalid-arg |
++---------------------------------------------------------------------------------------+----------------------+
+| If a snapshot is defined on a function, a postcondition must be defined as well.      | snapshot-wo-post     |
++---------------------------------------------------------------------------------------+----------------------+
+| A ``capture`` function must be defined in the contract.                               | snapshot-wo-capture  |
++---------------------------------------------------------------------------------------+----------------------+
 | A postcondition expects a subset of function's arguments.                             | post-invalid-arg     |
 +---------------------------------------------------------------------------------------+----------------------+
 | If a function returns None, a postcondition should not expect ``result`` as argument. | post-result-none     |
 +---------------------------------------------------------------------------------------+----------------------+
 | If a postcondition expects ``result`` argument, the function should not expect it.    | post-result-conflict |
++---------------------------------------------------------------------------------------+----------------------+
+| If a postcondition expects ``OLD`` argument, the function should not expect it.       | post-old-conflict    |
 +---------------------------------------------------------------------------------------+----------------------+
 | An invariant should only expect ``self`` argument.                                    | inv-invalid-arg      |
 +---------------------------------------------------------------------------------------+----------------------+

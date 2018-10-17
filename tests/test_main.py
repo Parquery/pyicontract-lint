@@ -87,7 +87,7 @@ class TestMain(unittest.TestCase):
                 [
                   {{
                     "identifier": "pre-invalid-arg",
-                    "description": "Condition argument(s) are missing in the function signature: x",
+                    "description": "Precondition argument(s) are missing in the function signature: x",
                     "filename": "{pth}",
                     "lineno": 3
                   }}
@@ -108,7 +108,7 @@ class TestMain(unittest.TestCase):
 
                 self.assertEqual(1, retcode)
                 self.assertEqual(
-                    ("{pth}:3: Condition argument(s) are missing in "
+                    ("{pth}:3: Precondition argument(s) are missing in "
                      "the function signature: x (pre-invalid-arg)\n").format(pth=pth.as_posix()),
                     buf.getvalue())
 
