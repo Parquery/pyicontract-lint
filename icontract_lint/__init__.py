@@ -28,9 +28,13 @@ class ErrorID(enum.Enum):
     """Enumerate error identifiers."""
 
     PRE_INVALID_ARG = "pre-invalid-arg"
+    SNAPSHOT_INVALID_ARG = "snapshot-invalid-arg"
+    SNAPSHOT_WO_CAPTURE = "snapshot-wo-capture"
+    SNAPSHOT_WO_POST = "snapshot-wo-post"
     POST_INVALID_ARG = "post-invalid-arg"
     POST_RESULT_NONE = "post-result-none"
     POST_RESULT_CONFLICT = "post-result-conflict"
+    POST_OLD_CONFLICT = "post-old-conflict"
     INV_INVALID_ARG = "inv-invalid-arg"
     NO_CONDITION = 'no-condition'
     INVALID_SYNTAX = 'invalid-syntax'
@@ -123,8 +127,8 @@ class _LintVisitor(_AstroidVisitor):
             self.errors.append(
                 Error(
                     identifier=ErrorID.PRE_INVALID_ARG,
-                    description="Condition argument(s) are missing in the function signature: {}".format(
-                        ", ".join(diff)),
+                    description="Precondition argument(s) are missing in the function signature: {}".format(
+                        ", ".join(sorted(diff))),
                     filename=self._filename,
                     lineno=lineno))
 
@@ -156,19 +160,30 @@ class _LintVisitor(_AstroidVisitor):
                     filename=self._filename,
                     lineno=lineno))
 
+        if 'OLD' in func_arg_set and 'OLD' in condition_arg_set:
+            self.errors.append(
+                Error(
+                    identifier=ErrorID.POST_OLD_CONFLICT,
+                    description="Function argument 'OLD' conflicts with the postcondition.",
+                    filename=self._filename,
+                    lineno=lineno))
+
         diff = condition_arg_set.difference(func_arg_set)
 
-        # Allow 'result' to be defined in the postcondition, but not in the function. All other arguments must match
-        # between the postcondition and the function.
+        # Allow 'result' and 'OLD' to be defined in the postcondition, but not in the function.
+        # All other arguments must match between the postcondition and the function.
         if 'result' in diff:
             diff.remove('result')
+
+        if 'OLD' in diff:
+            diff.remove('OLD')
 
         if diff:
             self.errors.append(
                 Error(
                     identifier=ErrorID.POST_INVALID_ARG,
-                    description="Condition argument(s) are missing in the function signature: {}".format(
-                        ", ".join(diff)),
+                    description="Postcondition argument(s) are missing in the function signature: {}".format(
+                        ", ".join(sorted(diff))),
                     filename=self._filename,
                     lineno=lineno))
 
@@ -187,31 +202,17 @@ class _LintVisitor(_AstroidVisitor):
 
         return condition_node
 
-    def _check_func_decorator(self, node: astroid.nodes.Call, func_arg_set: Set[str], func_has_result: bool) -> None:
+    @icontract.pre(lambda pytype: pytype in ['icontract.pre', 'icontract.post'])
+    def _verify_precondition_or_postcondition_decorator(self, node: astroid.nodes.Call, pytype: str,
+                                                        func_arg_set: Set[str], func_has_result: bool) -> None:
         """
-        Verify the function decorator.
+        Verify a precondition or a postcondition decorator.
 
         :param node: the decorator node
+        :param pytype: inferred type of the decorator
         :param func_arg_set: arguments of the wrapped function
         :param func_has_result: False if the function's result is annotated as None
         """
-        # Infer the decorator so that we resolve import aliases.
-        try:
-            decorator = next(node.infer())
-        except astroid.exceptions.NameInferenceError:
-            # Ignore uninferrable decorators
-            return
-
-        # Ignore decorators which could not be inferred.
-        if decorator is astroid.Uninferable:
-            return
-
-        pytype = decorator.pytype()
-
-        # Ignore non-contracts
-        if pytype not in ["icontract.pre", "icontract.post"]:
-            return
-
         condition_node = self._find_condition_node(node=node)
 
         if condition_node is None:
@@ -249,6 +250,106 @@ class _LintVisitor(_AstroidVisitor):
         else:
             raise NotImplementedError("Unhandled pytype: {}".format(pytype))
 
+    def _verify_snapshot_decorator(self, node: astroid.nodes.Call, func_arg_set: Set[str]):
+        """
+        Verify a snapshot decorator.
+
+        :param node: the decorator node
+        :param pytype: inferred type of the decorator
+        :param func_arg_set: arguments of the wrapped function
+        """
+        # Find the ``capture=...`` node
+        capture_node = None  # type: Optional[astroid.node_classes.NodeNG]
+        if node.args:
+            capture_node = node.args[0]
+        elif node.keywords:
+            for keyword_node in node.keywords:
+                if keyword_node.arg == "capture":
+                    capture_node = keyword_node.value
+        else:
+            self.errors.append(
+                Error(
+                    identifier=ErrorID.SNAPSHOT_WO_CAPTURE,
+                    description="The snapshot decorator lacks the capture function.",
+                    filename=self._filename,
+                    lineno=node.lineno))
+            return
+
+        # Infer the capture so as to resolve functions by name etc.
+        assert capture_node is not None, "Expected capture_node to be set in the preceding execution paths."
+        try:
+            capture = next(capture_node.infer())
+        except astroid.exceptions.NameInferenceError:
+            # Ignore uninferrable captures
+            return
+
+        assert isinstance(capture, (astroid.nodes.Lambda, astroid.nodes.FunctionDef)), \
+            "Expected the inferred capture to be either a lambda or a function definition, but got: {}".format(
+                capture)
+
+        capture_args = capture.argnames()
+
+        if len(capture_args) > 1:
+            self.errors.append(
+                Error(
+                    identifier=ErrorID.SNAPSHOT_INVALID_ARG,
+                    description="Snapshot capture function expects at most one argument, but got: {}".format(
+                        capture_args),
+                    filename=self._filename,
+                    lineno=node.lineno))
+            return
+
+        if len(capture_args) == 1 and capture_args[0] not in func_arg_set:
+            self.errors.append(
+                Error(
+                    identifier=ErrorID.SNAPSHOT_INVALID_ARG,
+                    description="Snapshot argument is missing in the function signature: {}".format(capture_args[0]),
+                    filename=self._filename,
+                    lineno=node.lineno))
+            return
+
+    def _check_func_decorator(self, node: astroid.nodes.Call, decorator: astroid.bases.Instance, func_arg_set: Set[str],
+                              func_has_result: bool) -> None:
+        """
+        Verify the function decorator.
+
+        :param node: the decorator node
+        :param decorator: inferred decorator instance
+        :param func_arg_set: arguments of the wrapped function
+        :param func_has_result: False if the function's result is annotated as None
+        """
+        pytype = decorator.pytype()
+
+        # Ignore non-icontract decorators
+        if pytype not in ["icontract.pre", "icontract.snapshot", "icontract.post"]:
+            return
+
+        if pytype in ['icontract.pre', 'icontract.post']:
+            self._verify_precondition_or_postcondition_decorator(
+                node=node, pytype=pytype, func_arg_set=func_arg_set, func_has_result=func_has_result)
+
+        elif pytype == 'icontract.snapshot':
+            self._verify_snapshot_decorator(node=node, func_arg_set=func_arg_set)
+
+    def _infer_decorator(self, node: astroid.nodes.Call) -> Optional[astroid.bases.Instance]:
+        """
+        Try to infer the decorator as instance of a class.
+
+        :param node: decorator AST node
+        :return: instance of the decorator or None if decorator instance could not be inferred
+        """
+        # While this function does not use ``self``, keep it close to the usage to improve the readability.
+        # pylint: disable=no-self-use
+        try:
+            decorator = next(node.infer())
+        except astroid.exceptions.NameInferenceError:
+            return None
+
+        if decorator is astroid.Uninferable:
+            return None
+
+        return decorator
+
     def visit_FunctionDef(self, node: astroid.nodes.FunctionDef) -> None:  # pylint: disable=invalid-name
         """Lint the function definition."""
         if node.decorators is None:
@@ -272,9 +373,29 @@ class _LintVisitor(_AstroidVisitor):
                 # Ignore uninferrable returns
                 pass
 
-        # Check the decorators
-        for decorator_node in node.decorators.nodes:
-            self._check_func_decorator(node=decorator_node, func_arg_set=func_arg_set, func_has_result=func_has_result)
+        # Infer the decorator instances
+        decorators = [self._infer_decorator(node=decorator_node) for decorator_node in node.decorators.nodes]
+
+        # Check the decorators individually
+        for decorator, decorator_node in zip(decorators, node.decorators.nodes):
+            # Skip uninferrable decorators
+            if decorator is None:
+                continue
+
+            self._check_func_decorator(
+                node=decorator_node, decorator=decorator, func_arg_set=func_arg_set, func_has_result=func_has_result)
+
+        # Check that at least one postcondition comes after a snapshot
+        pytypes = [decorator.pytype() for decorator in decorators if decorator is not None]  # type: List[str]
+        assert all(isinstance(pytype, str) for pytype in pytypes)
+
+        if 'icontract.snapshot' in pytypes and 'icontract.post' not in pytypes:
+            self.errors.append(
+                Error(
+                    identifier=ErrorID.SNAPSHOT_WO_POST,
+                    description="Snapshot defined on a function without a postcondition",
+                    filename=self._filename,
+                    lineno=node.lineno))
 
     def _check_class_decorator(self, node: astroid.Call) -> None:
         """

@@ -168,10 +168,91 @@ class TestCheckFile(unittest.TestCase):
                     self.assertDictEqual(
                         {
                             'identifier': 'pre-invalid-arg',
-                            'description': 'Condition argument(s) are missing in the function signature: x',
+                            'description': 'Precondition argument(s) are missing in the function signature: x',
                             'filename': pth.as_posix(),
                             'lineno': lineno
                         }, err.as_mapping())
+
+    def test_snapshot_valid(self):
+        text = textwrap.dedent("""\
+                from typing import List
+                from icontract import post, snapshot
+
+                def some_len(lst: List[int]) -> int:
+                    return len(lst)
+
+                @snapshot(lambda lst: lst[:])
+                @snapshot(capture=some_len, name="len_lst")
+                @post(lambda OLD, lst: OLD.lst + [value] == lst)
+                def some_func(lst: List[int], value: int) -> None:
+                    lst.append(value)
+                """)
+
+        with temppathlib.TemporaryDirectory() as tmp:
+            pth = tmp.path / "some_module.py"
+            pth.write_text(text)
+
+            with sys_path_with(tmp.path):
+                errors = icontract_lint.check_file(path=pth)
+                self.assertListEqual([], errors)
+
+    def test_snapshot_invalid_arg(self):
+        text = textwrap.dedent("""\
+                        from typing import List
+                        from icontract import post, snapshot
+
+                        def some_len(another_lst: List[int]) -> int:
+                            return len(another_lst)
+
+                        @snapshot(lambda another_lst: another_lst[:])  # inconsistent with some_func
+                        @snapshot(some_len)  # inconsistent with some_func
+                        @post(lambda OLD, lst: OLD.lst + [value] == lst)
+                        def some_func(lst: List[int], value: int) -> None:
+                            lst.append(value)
+                        """)
+
+        with temppathlib.TemporaryDirectory() as tmp:
+            pth = tmp.path / "some_module.py"
+            pth.write_text(text)
+
+            with sys_path_with(tmp.path):
+                errors = icontract_lint.check_file(path=pth)
+                self.assertEqual(2, len(errors))
+
+                for err, lineno in zip(errors, [7, 8]):
+                    self.assertDictEqual(
+                        {
+                            'identifier': 'snapshot-invalid-arg',
+                            'description': 'Snapshot argument is missing in the function signature: another_lst',
+                            'filename': pth.as_posix(),
+                            'lineno': lineno
+                        }, err.as_mapping())
+
+    def test_snapshot_wo_post(self):
+        text = textwrap.dedent("""\
+                        from typing import List
+                        from icontract import post, snapshot
+
+                        @snapshot(lambda lst: lst[:])  # no postcondition defined after the snapshot 
+                        def some_func(lst: List[int], value: int) -> None:
+                            lst.append(value)
+                        """)
+
+        with temppathlib.TemporaryDirectory() as tmp:
+            pth = tmp.path / "some_module.py"
+            pth.write_text(text)
+
+            with sys_path_with(tmp.path):
+                errors = icontract_lint.check_file(path=pth)
+                self.assertEqual(1, len(errors))
+
+                for err, lineno in zip(errors, [4]):
+                    self.assertDictEqual({
+                        'identifier': 'snapshot-wo-post',
+                        'description': 'Snapshot defined on a function without a postcondition',
+                        'filename': pth.as_posix(),
+                        'lineno': lineno
+                    }, err.as_mapping())
 
     def test_uninferrable_returns(self):
         text = textwrap.dedent("""\
@@ -288,7 +369,7 @@ class TestCheckFile(unittest.TestCase):
                     self.assertDictEqual(
                         {
                             'identifier': 'post-invalid-arg',
-                            'description': 'Condition argument(s) are missing in the function signature: x',
+                            'description': 'Postcondition argument(s) are missing in the function signature: x',
                             'filename': pth.as_posix(),
                             'lineno': lineno
                         }, err.as_mapping())
@@ -319,6 +400,35 @@ class TestCheckFile(unittest.TestCase):
                     self.assertDictEqual({
                         'identifier': 'post-result-conflict',
                         'description': "Function argument 'result' conflicts with the postcondition.",
+                        'filename': pth.as_posix(),
+                        'lineno': lineno
+                    }, err.as_mapping())
+
+    def test_post_old_conflict(self):
+        text = textwrap.dedent("""\
+                from typing import List
+
+                from icontract import post
+
+                @snapshot(lambda lst: lst[:])
+                @post(lambda OLD, lst, value: OLD.lst + [value] == lst)
+                def some_func(lst: List[int], value: int, OLD: int) -> int:  # OLD argument is conflicting
+                    lst.append(value)
+                    return value
+                """)
+
+        with temppathlib.TemporaryDirectory() as tmp:
+            pth = tmp.path / "some_module.py"
+            pth.write_text(text)
+
+            with sys_path_with(tmp.path):
+                errors = icontract_lint.check_file(path=pth)
+                self.assertEqual(1, len(errors))
+
+                for err, lineno in zip(errors, [6]):
+                    self.assertDictEqual({
+                        'identifier': 'post-old-conflict',
+                        'description': "Function argument 'OLD' conflicts with the postcondition.",
                         'filename': pth.as_posix(),
                         'lineno': lineno
                     }, err.as_mapping())
