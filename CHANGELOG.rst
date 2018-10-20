@@ -1,3 +1,7 @@
+1.2.0
+=====
+* Added support for ``icontract.snapshot``'s
+
 1.1.1
 =====
 * ``ImportError`` is ignored if module of the file could not be figured out (*e.g.* when the ``__init__.py`` is
