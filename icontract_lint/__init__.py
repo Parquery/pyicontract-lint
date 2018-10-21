@@ -202,7 +202,7 @@ class _LintVisitor(_AstroidVisitor):
 
         return condition_node
 
-    @icontract.pre(lambda pytype: pytype in ['icontract.pre', 'icontract.post'])
+    @icontract.pre(lambda pytype: pytype in ['icontract._decorators.pre', 'icontract._decorators.post'])
     def _verify_precondition_or_postcondition_decorator(self, node: astroid.nodes.Call, pytype: str,
                                                         func_arg_set: Set[str], func_has_result: bool) -> None:
         """
@@ -238,10 +238,10 @@ class _LintVisitor(_AstroidVisitor):
         condition_arg_set = set(condition.argnames())
 
         # Verify
-        if pytype == 'icontract.pre':
+        if pytype == 'icontract._decorators.pre':
             self._verify_pre(func_arg_set=func_arg_set, condition_arg_set=condition_arg_set, lineno=node.lineno)
 
-        elif pytype == 'icontract.post':
+        elif pytype == 'icontract._decorators.post':
             self._verify_post(
                 func_arg_set=func_arg_set,
                 func_has_result=func_has_result,
@@ -321,15 +321,18 @@ class _LintVisitor(_AstroidVisitor):
         pytype = decorator.pytype()
 
         # Ignore non-icontract decorators
-        if pytype not in ["icontract.pre", "icontract.snapshot", "icontract.post"]:
+        if pytype not in ["icontract._decorators.pre", "icontract._decorators.snapshot", "icontract._decorators.post"]:
             return
 
-        if pytype in ['icontract.pre', 'icontract.post']:
+        if pytype in ['icontract._decorators.pre', 'icontract._decorators.post']:
             self._verify_precondition_or_postcondition_decorator(
                 node=node, pytype=pytype, func_arg_set=func_arg_set, func_has_result=func_has_result)
 
-        elif pytype == 'icontract.snapshot':
+        elif pytype == 'icontract._decorators.snapshot':
             self._verify_snapshot_decorator(node=node, func_arg_set=func_arg_set)
+
+        else:
+            raise NotImplementedError("Unhandled pytype: {}".format(pytype))
 
     def _infer_decorator(self, node: astroid.nodes.Call) -> Optional[astroid.bases.Instance]:
         """
@@ -389,7 +392,7 @@ class _LintVisitor(_AstroidVisitor):
         pytypes = [decorator.pytype() for decorator in decorators if decorator is not None]  # type: List[str]
         assert all(isinstance(pytype, str) for pytype in pytypes)
 
-        if 'icontract.snapshot' in pytypes and 'icontract.post' not in pytypes:
+        if 'icontract._decorators.snapshot' in pytypes and 'icontract._decorators.post' not in pytypes:
             self.errors.append(
                 Error(
                     identifier=ErrorID.SNAPSHOT_WO_POST,
@@ -417,7 +420,7 @@ class _LintVisitor(_AstroidVisitor):
 
         pytype = decorator.pytype()
 
-        if pytype != 'icontract.inv':
+        if pytype != 'icontract._decorators.inv':
             return
 
         condition_node = self._find_condition_node(node=node)
