@@ -1,3 +1,7 @@
+1.2.1
+=====
+* Updated to icontract 1.7.1 due to refactoring of tight coupling with icontract internals
+
 1.2.0
 =====
 * Added support for ``icontract.snapshot``'s
