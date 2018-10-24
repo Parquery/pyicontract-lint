@@ -40,9 +40,9 @@ class ErrorID(enum.Enum):
     INVALID_SYNTAX = 'invalid-syntax'
 
 
-@icontract.inv(lambda self: len(self.description) > 0)
-@icontract.inv(lambda self: len(self.filename) > 0)
-@icontract.inv(lambda self: self.lineno >= 1)
+@icontract.invariant(lambda self: len(self.description) > 0)
+@icontract.invariant(lambda self: len(self.filename) > 0)
+@icontract.invariant(lambda self: self.lineno >= 1)
 class Error:
     """
     Represent a linter error.
@@ -62,9 +62,9 @@ class Error:
 
     """
 
-    @icontract.pre(lambda description: len(description) > 0)
-    @icontract.pre(lambda filename: len(filename) > 0)
-    @icontract.pre(lambda lineno: lineno >= 1)
+    @icontract.require(lambda description: len(description) > 0)
+    @icontract.require(lambda filename: len(filename) > 0)
+    @icontract.require(lambda lineno: lineno >= 1)
     def __init__(self, identifier: ErrorID, description: str, filename: str, lineno: int) -> None:
         """Initialize with the given properties."""
         self.identifier = identifier
@@ -112,7 +112,7 @@ class _LintVisitor(_AstroidVisitor):
         self._filename = filename
         self.errors = []  # type: List[Error]
 
-    @icontract.pre(lambda lineno: lineno >= 1)
+    @icontract.require(lambda lineno: lineno >= 1)
     def _verify_pre(self, func_arg_set: Set[str], condition_arg_set: Set[str], lineno: int) -> None:
         """
         Verify the precondition.
@@ -132,7 +132,7 @@ class _LintVisitor(_AstroidVisitor):
                     filename=self._filename,
                     lineno=lineno))
 
-    @icontract.pre(lambda lineno: lineno >= 1)
+    @icontract.require(lambda lineno: lineno >= 1)
     def _verify_post(self, func_arg_set: Set[str], func_has_result: bool, condition_arg_set: Set[str],
                      lineno: int) -> None:
         """
@@ -202,7 +202,7 @@ class _LintVisitor(_AstroidVisitor):
 
         return condition_node
 
-    @icontract.pre(lambda pytype: pytype in ['icontract._decorators.pre', 'icontract._decorators.post'])
+    @icontract.require(lambda pytype: pytype in ['icontract._decorators.require', 'icontract._decorators.ensure'])
     def _verify_precondition_or_postcondition_decorator(self, node: astroid.nodes.Call, pytype: str,
                                                         func_arg_set: Set[str], func_has_result: bool) -> None:
         """
@@ -238,10 +238,10 @@ class _LintVisitor(_AstroidVisitor):
         condition_arg_set = set(condition.argnames())
 
         # Verify
-        if pytype == 'icontract._decorators.pre':
+        if pytype == 'icontract._decorators.require':
             self._verify_pre(func_arg_set=func_arg_set, condition_arg_set=condition_arg_set, lineno=node.lineno)
 
-        elif pytype == 'icontract._decorators.post':
+        elif pytype == 'icontract._decorators.ensure':
             self._verify_post(
                 func_arg_set=func_arg_set,
                 func_has_result=func_has_result,
@@ -321,10 +321,12 @@ class _LintVisitor(_AstroidVisitor):
         pytype = decorator.pytype()
 
         # Ignore non-icontract decorators
-        if pytype not in ["icontract._decorators.pre", "icontract._decorators.snapshot", "icontract._decorators.post"]:
+        if pytype not in [
+                "icontract._decorators.require", "icontract._decorators.snapshot", "icontract._decorators.ensure"
+        ]:
             return
 
-        if pytype in ['icontract._decorators.pre', 'icontract._decorators.post']:
+        if pytype in ['icontract._decorators.require', 'icontract._decorators.ensure']:
             self._verify_precondition_or_postcondition_decorator(
                 node=node, pytype=pytype, func_arg_set=func_arg_set, func_has_result=func_has_result)
 
@@ -392,7 +394,7 @@ class _LintVisitor(_AstroidVisitor):
         pytypes = [decorator.pytype() for decorator in decorators if decorator is not None]  # type: List[str]
         assert all(isinstance(pytype, str) for pytype in pytypes)
 
-        if 'icontract._decorators.snapshot' in pytypes and 'icontract._decorators.post' not in pytypes:
+        if 'icontract._decorators.snapshot' in pytypes and 'icontract._decorators.ensure' not in pytypes:
             self.errors.append(
                 Error(
                     identifier=ErrorID.SNAPSHOT_WO_POST,
@@ -420,7 +422,7 @@ class _LintVisitor(_AstroidVisitor):
 
         pytype = decorator.pytype()
 
-        if pytype != 'icontract._decorators.inv':
+        if pytype != 'icontract._decorators.invariant':
             return
 
         condition_node = self._find_condition_node(node=node)
@@ -469,7 +471,7 @@ class _LintVisitor(_AstroidVisitor):
 _DISABLED_DIRECTIVE_RE = re.compile(r'^\s*#\s*pyicontract-lint\s*:\s*disabled\s*$')
 
 
-@icontract.pre(lambda path: path.is_file())
+@icontract.require(lambda path: path.is_file())
 def check_file(path: pathlib.Path) -> List[Error]:
     """
     Parse the given file as Python code and lint its contracts.
@@ -508,7 +510,7 @@ def check_file(path: pathlib.Path) -> List[Error]:
     return lint_visitor.errors
 
 
-@icontract.pre(lambda path: path.is_dir())
+@icontract.require(lambda path: path.is_dir())
 def check_recursively(path: pathlib.Path) -> List[Error]:
     """
     Lint all ``*.py`` files beneath the directory (including subdirectories).
@@ -523,7 +525,7 @@ def check_recursively(path: pathlib.Path) -> List[Error]:
     return errs
 
 
-@icontract.post(lambda paths, result: len(paths) > 0 or len(result) == 0, "no paths implies no errors")
+@icontract.ensure(lambda paths, result: len(paths) > 0 or len(result) == 0, "no paths implies no errors")
 def check_paths(paths: List[pathlib.Path]) -> List[Error]:
     """
     Lint the given paths.

@@ -61,9 +61,9 @@ class sys_path_with:  # pylint: disable=invalid-name,duplicate-code
 class TestMain(unittest.TestCase):
     # pylint: disable=protected-access
     TEXT = textwrap.dedent("""\
-                from icontract import pre
+                from icontract import require
 
-                @pre(lambda x: x > 0)
+                @require(lambda x: x > 0)
                 def some_func(y: int) -> int:
                     return y
                 """)

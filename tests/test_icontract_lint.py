@@ -71,9 +71,9 @@ class TestCheckFile(unittest.TestCase):
 
     def test_missing_condition(self):
         text = textwrap.dedent("""\
-                from icontract import pre
+                from icontract import require
 
-                @pre(description='hello')
+                @require(description='hello')
                 def some_func(x: int) -> int:
                     pass
                 """)
@@ -95,14 +95,14 @@ class TestCheckFile(unittest.TestCase):
 
     def test_pre_valid(self):
         text = textwrap.dedent("""\
-                from icontract import pre
+                from icontract import require
                 
                 def lt_100(x: int) -> bool: 
                     return x < 100
                 
-                @pre(lambda x: x > 0)
-                @pre(condition=lambda x: x % 2 == 0)
-                @pre(lt_100)
+                @require(lambda x: x > 0)
+                @require(condition=lambda x: x % 2 == 0)
+                @require(lt_100)
                 def some_func(x: int) -> int:
                     return x
                 """)
@@ -118,11 +118,11 @@ class TestCheckFile(unittest.TestCase):
 
     def test_disabled(self):
         text = textwrap.dedent("""\
-                        from icontract import pre
+                        from icontract import require
                         
                         # pyicontract-lint: disabled
                         
-                        @pre(lambda x: x > 0)
+                        @require(lambda x: x > 0)
                         def some_func(y: int) -> int:
                             return y
                         """)
@@ -138,19 +138,19 @@ class TestCheckFile(unittest.TestCase):
 
     def test_pre_invalid_arg(self):
         text = textwrap.dedent("""\
-                from icontract import pre
+                from icontract import require
 
                 def lt_100(x: int) -> bool: 
                     return x < 100
 
-                @pre(lambda x: x > 0)
-                @pre(condition=lambda x: x % 2 == 0)
-                @pre(lt_100)
+                @require(lambda x: x > 0)
+                @require(condition=lambda x: x % 2 == 0)
+                @require(lt_100)
                 def some_func(y: int) -> int:
                     return y
                     
                 class SomeClass:
-                    @pre(lambda x: x > 0)
+                    @require(lambda x: x > 0)
                     def some_method(self, y: int) -> int:
                         return y
                 """)
@@ -176,14 +176,14 @@ class TestCheckFile(unittest.TestCase):
     def test_snapshot_valid(self):
         text = textwrap.dedent("""\
                 from typing import List
-                from icontract import post, snapshot
+                from icontract import ensure, snapshot
 
                 def some_len(lst: List[int]) -> int:
                     return len(lst)
 
                 @snapshot(lambda lst: lst[:])
                 @snapshot(capture=some_len, name="len_lst")
-                @post(lambda OLD, lst: OLD.lst + [value] == lst)
+                @ensure(lambda OLD, lst: OLD.lst + [value] == lst)
                 def some_func(lst: List[int], value: int) -> None:
                     lst.append(value)
                 """)
@@ -199,14 +199,14 @@ class TestCheckFile(unittest.TestCase):
     def test_snapshot_invalid_arg(self):
         text = textwrap.dedent("""\
                         from typing import List
-                        from icontract import post, snapshot
+                        from icontract import ensure, snapshot
 
                         def some_len(another_lst: List[int]) -> int:
                             return len(another_lst)
 
                         @snapshot(lambda another_lst: another_lst[:])  # inconsistent with some_func
                         @snapshot(some_len)  # inconsistent with some_func
-                        @post(lambda OLD, lst: OLD.lst + [value] == lst)
+                        @ensure(lambda OLD, lst: OLD.lst + [value] == lst)
                         def some_func(lst: List[int], value: int) -> None:
                             lst.append(value)
                         """)
@@ -231,7 +231,7 @@ class TestCheckFile(unittest.TestCase):
     def test_snapshot_wo_post(self):
         text = textwrap.dedent("""\
                         from typing import List
-                        from icontract import post, snapshot
+                        from icontract import ensure, snapshot
 
                         @snapshot(lambda lst: lst[:])  # no postcondition defined after the snapshot 
                         def some_func(lst: List[int], value: int) -> None:
@@ -256,9 +256,9 @@ class TestCheckFile(unittest.TestCase):
 
     def test_uninferrable_returns(self):
         text = textwrap.dedent("""\
-                        from icontract import post
+                        from icontract import ensure
 
-                        @post(lambda result: result > 0)
+                        @ensure(lambda result: result > 0)
                         def some_func(x: int) -> SomeUninferrableClass:
                             return x
                         """)
@@ -272,14 +272,14 @@ class TestCheckFile(unittest.TestCase):
 
     def test_post_valid(self):
         text = textwrap.dedent("""\
-                from icontract import post
+                from icontract import ensure
 
                 def lt_100(result: int) -> bool: 
                     return result < 100
 
-                @post(lambda result: result > 0)
-                @post(condition=lambda result: result % 2 == 0)
-                @post(lt_100)
+                @ensure(lambda result: result > 0)
+                @ensure(condition=lambda result: result % 2 == 0)
+                @ensure(lt_100)
                 def some_func(x: int) -> int:
                     return x
                 """)
@@ -293,14 +293,14 @@ class TestCheckFile(unittest.TestCase):
 
     def test_post_valid_without_returns(self):
         text = textwrap.dedent("""\
-                from icontract import post
+                from icontract import ensure
 
                 def lt_100(result: int) -> bool: 
                     return result < 100
 
-                @post(lambda result: result > 0)
-                @post(condition=lambda result: result % 2 == 0)
-                @post(lt_100)
+                @ensure(lambda result: result > 0)
+                @ensure(condition=lambda result: result % 2 == 0)
+                @ensure(lt_100)
                 def some_func(x: int):
                     return x
                 """)
@@ -314,14 +314,14 @@ class TestCheckFile(unittest.TestCase):
 
     def test_post_result_none(self):
         text = textwrap.dedent("""\
-                from icontract import post
+                from icontract import ensure
 
                 def lt_100(result: int) -> bool: 
                     return result < 100
 
-                @post(lambda result: result > 0)
-                @post(condition=lambda result: result % 2 == 0)
-                @post(lt_100)
+                @ensure(lambda result: result > 0)
+                @ensure(condition=lambda result: result % 2 == 0)
+                @ensure(lt_100)
                 def some_func(x: int) -> None:
                     return x
                 """)
@@ -345,14 +345,14 @@ class TestCheckFile(unittest.TestCase):
 
     def test_post_invalid_args(self):
         text = textwrap.dedent("""\
-                from icontract import post
+                from icontract import ensure
 
                 def some_other_func(x: int, result: int) -> bool: 
                     return result * x < 1000
 
-                @post(lambda x, result: result > x)
-                @post(condition=lambda x, result: result % x == 0)
-                @post(some_other_func)
+                @ensure(lambda x, result: result > x)
+                @ensure(condition=lambda x, result: result % x == 0)
+                @ensure(some_other_func)
                 def some_func(y: int) -> int:
                     return y
                 """)
@@ -376,14 +376,14 @@ class TestCheckFile(unittest.TestCase):
 
     def test_post_result_conflict(self):
         text = textwrap.dedent("""\
-                from icontract import post
+                from icontract import ensure
 
                 def some_other_func(x: int, result: int) -> bool: 
                     return result * x < 1000
 
-                @post(lambda x, result: result > x)
-                @post(condition=lambda x, result: result % x == 0)
-                @post(some_other_func)
+                @ensure(lambda x, result: result > x)
+                @ensure(condition=lambda x, result: result % x == 0)
+                @ensure(some_other_func)
                 def some_func(x: int, result: int) -> int:
                     return result
                 """)
@@ -408,10 +408,10 @@ class TestCheckFile(unittest.TestCase):
         text = textwrap.dedent("""\
                 from typing import List
 
-                from icontract import post
+                from icontract import ensure
 
                 @snapshot(lambda lst: lst[:])
-                @post(lambda OLD, lst, value: OLD.lst + [value] == lst)
+                @ensure(lambda OLD, lst, value: OLD.lst + [value] == lst)
                 def some_func(lst: List[int], value: int, OLD: int) -> int:  # OLD argument is conflicting
                     lst.append(value)
                     return value
@@ -435,14 +435,14 @@ class TestCheckFile(unittest.TestCase):
 
     def test_inv_ok(self):
         text = textwrap.dedent("""\
-                from icontract import inv
+                from icontract import invariant
                 
                 def lt_100(self) -> bool:
                     return self.x < 100
                 
-                @inv(lambda self: self.x > 0)
-                @inv(condition=lambda self: self.x % 2 == 0)
-                @inv(lt_100)
+                @invariant(lambda self: self.x > 0)
+                @invariant(condition=lambda self: self.x % 2 == 0)
+                @invariant(lt_100)
                 class SomeClass:
                     def __init__(self) -> None:
                         self.x = 22
@@ -458,14 +458,14 @@ class TestCheckFile(unittest.TestCase):
 
     def test_inv_invalid_arg(self):
         text = textwrap.dedent("""\
-                from icontract import inv
+                from icontract import invariant
 
                 def lt_100(selfie) -> bool:
                     return selfie.x < 100
 
-                @inv(lambda selfie: selfie.x > 0)
-                @inv(condition=lambda selfie: selfie.x % 2 == 0)
-                @inv(lt_100)
+                @invariant(lambda selfie: selfie.x > 0)
+                @invariant(condition=lambda selfie: selfie.x % 2 == 0)
+                @invariant(lt_100)
                 class SomeClass:
                     def __init__(self) -> None:
                         self.x = 22
@@ -492,9 +492,9 @@ class TestCheckFile(unittest.TestCase):
 
     def test_no_condition_in_inv(self):
         text = textwrap.dedent("""\
-                from icontract import inv
+                from icontract import invariant
 
-                @inv(description='hello')
+                @invariant(description='hello')
                 class SomeClass:
                     def __init__(self) -> None:
                         self.x = 22
@@ -519,9 +519,9 @@ class TestCheckFile(unittest.TestCase):
 
     def test_syntax_error(self):
         text = textwrap.dedent("""\
-                from icontract import pre
+                from icontract import require
 
-                @pre(lambda x:int: x > 3)
+                @require(lambda x:int: x > 3)
                 def some_func(x: int) -> int:
                     return x
                 """)
@@ -553,9 +553,9 @@ class TestCheckPaths(unittest.TestCase):
     def test_file(self):
         with temppathlib.TemporaryDirectory() as tmp:
             text = textwrap.dedent("""\
-                from icontract import pre
+                from icontract import require
 
-                @pre(lambda x:int: x > 3)
+                @require(lambda x:int: x > 3)
                 def some_func(x: int) -> int:
                     return x
                 """)
@@ -579,9 +579,9 @@ class TestCheckPaths(unittest.TestCase):
     def test_directory(self):
         with temppathlib.TemporaryDirectory() as tmp:
             text = textwrap.dedent("""\
-                from icontract import pre
+                from icontract import require
 
-                @pre(lambda x:int: x > 3)
+                @require(lambda x:int: x > 3)
                 def some_func(x: int) -> int:
                     return x
                 """)
