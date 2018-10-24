@@ -1,3 +1,7 @@
+2.0.0
+=====
+* Updated to icontract 2.0.0
+
 1.2.1
 =====
 * Updated to icontract 1.7.1 due to refactoring of tight coupling with icontract internals
