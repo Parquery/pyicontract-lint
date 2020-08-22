@@ -496,12 +496,14 @@ def check_file(path: pathlib.Path) -> List[Error]:
         cause = err.__cause__
         assert isinstance(cause, SyntaxError)
 
+        lineno = -1 if cause.lineno is None else cause.lineno  # pylint: disable=no-member
+
         return [
             Error(
                 identifier=ErrorID.INVALID_SYNTAX,
                 description=cause.msg,  # pylint: disable=no-member
                 filename=path.as_posix(),
-                lineno=cause.lineno)  # pylint: disable=no-member
+                lineno=lineno)  # pylint: disable=no-member
         ]
 
     lint_visitor = _LintVisitor(filename=path.as_posix())
