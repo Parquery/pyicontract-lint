@@ -60,7 +60,7 @@ def _main(args: Args, stream: TextIO) -> int:
     return 0
 
 
-def main() -> None:
+def main() -> int:
     """Wrap the main routine so that it can be tested."""
     args = parse_args(sys_argv=sys.argv)
-    sys.exit(_main(args=args, stream=sys.stdout))
+    return _main(args=args, stream=sys.stdout)
