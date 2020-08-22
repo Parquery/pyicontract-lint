@@ -1,3 +1,10 @@
+2.0.1
+=====
+* Replaced scripts with entry points (in order to support Windows)
+* Upgraded pylint and mypy to latest versions
+  (more issues detected, fixed broken dependencies)
+* Added support for Python 3.7 and 3.8
+
 2.0.0
 =====
 * Updated to icontract 2.0.0
