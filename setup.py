@@ -31,7 +31,9 @@ setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6'
+        'Programming Language :: Python :: 3.6',
+        'Operating System :: Microsoft :: Windows',
+        'Operating System :: POSIX'
         # yapf: enable
     ],
     license='License :: OSI Approved :: MIT License',
@@ -51,7 +53,7 @@ setup(
             # yapf: enable
         ],
     },
-    scripts=['bin/pyicontract-lint'],
+    entry_points={"console_scripts": ["pyicontract-lint = icontract_lint.main:main"]},
     py_modules=['icontract_lint', 'pyicontract_lint_meta'],
     include_package_data=True,
     package_data={

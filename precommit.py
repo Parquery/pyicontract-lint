@@ -28,26 +28,26 @@ def main() -> int:
     if overwrite:
         subprocess.check_call(
             [
-                "yapf", "--in-place", "--style=style.yapf", "--recursive", "tests", "icontract_lint",
-                "bin/pyicontract-lint", "setup.py", "precommit.py"
+                "yapf", "--in-place", "--style=style.yapf", "--recursive", "tests", "icontract_lint", "setup.py",
+                "precommit.py"
             ],
             cwd=repo_root.as_posix())
     else:
         subprocess.check_call(
             [
-                "yapf", "--diff", "--style=style.yapf", "--recursive", "tests", "icontract_lint",
-                "bin/pyicontract-lint", "setup.py", "precommit.py"
+                "yapf", "--diff", "--style=style.yapf", "--recursive", "tests", "icontract_lint", "setup.py",
+                "precommit.py"
             ],
             cwd=repo_root.as_posix())
 
     print("Mypy'ing...")
-    subprocess.check_call(["mypy", "icontract_lint", "bin/pyicontract-lint", "tests"], cwd=repo_root.as_posix())
+    subprocess.check_call(["mypy", "icontract_lint", "tests"], cwd=repo_root.as_posix())
 
     print("Pylint'ing...")
     subprocess.check_call(["pylint", "--rcfile=pylint.rc", "tests", "icontract_lint"], cwd=repo_root.as_posix())
 
     print("Pydocstyle'ing...")
-    subprocess.check_call(["pydocstyle", "icontract_lint", "bin/pyicontract-lint"], cwd=repo_root.as_posix())
+    subprocess.check_call(["pydocstyle", "icontract_lint"], cwd=repo_root.as_posix())
 
     print("Testing...")
     env = os.environ.copy()

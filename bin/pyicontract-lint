@@ -1,7 +1,0 @@
-#!/usr/bin/env python3
-"""Lint contracts defined with icontract library."""
-
-import icontract_lint.main
-
-if __name__ == "__main__":
-    icontract_lint.main.main()
