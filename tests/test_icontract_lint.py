@@ -4,11 +4,10 @@
 import io
 import pathlib
 import sys
+import tempfile
 import textwrap
 import unittest
 from typing import List, cast, TextIO
-
-import temppathlib
 
 import icontract_lint
 
@@ -22,11 +21,11 @@ class sys_path_with:  # pylint: disable=invalid-name
 
     def __enter__(self):
         """Add the path to the ``sys.path``."""
-        sys.path.insert(0, self.path.as_posix())
+        sys.path.insert(0, str(self.path))
 
     def __exit__(self, exc_type, exc_value, traceback):
         """Remove the path from the ``sys.path``."""
-        sys.path.remove(self.path.as_posix())
+        sys.path.remove(str(self.path))
 
 
 class TestCheckFile(unittest.TestCase):
@@ -48,11 +47,15 @@ class TestCheckFile(unittest.TestCase):
                         pass
                 """)
 
-        with temppathlib.NamedTemporaryFile() as tmp, sys_path_with(tmp.path.parent):
-            tmp.path.write_text(text)
-            errors = icontract_lint.check_file(path=tmp.path)
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            pth = tmp_path / "some_module.py"
+            pth.write_text(text)
 
-            self.assertListEqual([], errors)
+            with sys_path_with(tmp_path):
+                errors = icontract_lint.check_file(path=pth)
+
+                self.assertListEqual([], errors)
 
     def test_uninferrable_decorator(self):
         text = textwrap.dedent("""\
@@ -61,11 +64,12 @@ class TestCheckFile(unittest.TestCase):
                     pass
                 """)
 
-        with temppathlib.TemporaryDirectory() as tmp:
-            pth = tmp.path / "some_module.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp.path):
+            with sys_path_with(tmp_path):
                 errors = icontract_lint.check_file(path=pth)
                 self.assertListEqual([], errors)
 
@@ -78,18 +82,19 @@ class TestCheckFile(unittest.TestCase):
                     pass
                 """)
 
-        with temppathlib.TemporaryDirectory() as tmp:
-            pth = tmp.path / "some_module.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp.path):
+            with sys_path_with(tmp_path):
                 errors = icontract_lint.check_file(path=pth)
 
                 self.assertEqual(1, len(errors))
                 self.assertDictEqual({
                     'identifier': 'no-condition',
                     'description': 'The contract decorator lacks the condition.',
-                    'filename': pth.as_posix(),
+                    'filename': str(pth),
                     'lineno': 3
                 }, errors[0].as_mapping())
 
@@ -107,11 +112,13 @@ class TestCheckFile(unittest.TestCase):
                     return x
                 """)
 
-        with temppathlib.TemporaryDirectory() as tmp:
-            pth = tmp.path / "some_module.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+
+            pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp.path):
+            with sys_path_with(tmp_path):
                 errors = icontract_lint.check_file(path=pth)
 
                 self.assertListEqual([], errors)
@@ -127,11 +134,13 @@ class TestCheckFile(unittest.TestCase):
                             return y
                         """)
 
-        with temppathlib.TemporaryDirectory() as tmp:
-            pth = tmp.path / "some_module.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+
+            pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp.path):
+            with sys_path_with(tmp_path):
                 errors = icontract_lint.check_file(path=pth)
 
                 self.assertListEqual([], errors)
@@ -155,11 +164,13 @@ class TestCheckFile(unittest.TestCase):
                         return y
                 """)
 
-        with temppathlib.TemporaryDirectory() as tmp:
-            pth = tmp.path / "some_module.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+
+            pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp.path):
+            with sys_path_with(tmp_path):
                 errors = icontract_lint.check_file(path=pth)
 
                 self.assertEqual(4, len(errors))
@@ -169,7 +180,7 @@ class TestCheckFile(unittest.TestCase):
                         {
                             'identifier': 'pre-invalid-arg',
                             'description': 'Precondition argument(s) are missing in the function signature: x',
-                            'filename': pth.as_posix(),
+                            'filename': str(pth),
                             'lineno': lineno
                         }, err.as_mapping())
 
@@ -188,11 +199,13 @@ class TestCheckFile(unittest.TestCase):
                     lst.append(value)
                 """)
 
-        with temppathlib.TemporaryDirectory() as tmp:
-            pth = tmp.path / "some_module.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+
+            pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp.path):
+            with sys_path_with(tmp_path):
                 errors = icontract_lint.check_file(path=pth)
                 self.assertListEqual([], errors)
 
@@ -211,11 +224,13 @@ class TestCheckFile(unittest.TestCase):
                             lst.append(value)
                         """)
 
-        with temppathlib.TemporaryDirectory() as tmp:
-            pth = tmp.path / "some_module.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+
+            pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp.path):
+            with sys_path_with(tmp_path):
                 errors = icontract_lint.check_file(path=pth)
                 self.assertEqual(2, len(errors))
 
@@ -224,7 +239,7 @@ class TestCheckFile(unittest.TestCase):
                         {
                             'identifier': 'snapshot-invalid-arg',
                             'description': 'Snapshot argument is missing in the function signature: another_lst',
-                            'filename': pth.as_posix(),
+                            'filename': str(pth),
                             'lineno': lineno
                         }, err.as_mapping())
 
@@ -238,11 +253,13 @@ class TestCheckFile(unittest.TestCase):
                             lst.append(value)
                         """)
 
-        with temppathlib.TemporaryDirectory() as tmp:
-            pth = tmp.path / "some_module.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+
+            pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp.path):
+            with sys_path_with(tmp_path):
                 errors = icontract_lint.check_file(path=pth)
                 self.assertEqual(1, len(errors))
 
@@ -250,7 +267,7 @@ class TestCheckFile(unittest.TestCase):
                     self.assertDictEqual({
                         'identifier': 'snapshot-wo-post',
                         'description': 'Snapshot defined on a function without a postcondition',
-                        'filename': pth.as_posix(),
+                        'filename': str(pth),
                         'lineno': lineno
                     }, err.as_mapping())
 
@@ -263,11 +280,13 @@ class TestCheckFile(unittest.TestCase):
                             return x
                         """)
 
-        with temppathlib.TemporaryDirectory() as tmp:
-            pth = tmp.path / "some_module.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+
+            pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp.path):
+            with sys_path_with(tmp_path):
                 self.assertListEqual([], icontract_lint.check_file(path=pth))
 
     def test_post_valid(self):
@@ -284,11 +303,13 @@ class TestCheckFile(unittest.TestCase):
                     return x
                 """)
 
-        with temppathlib.TemporaryDirectory() as tmp:
-            pth = tmp.path / "some_module.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+
+            pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp.path):
+            with sys_path_with(tmp_path):
                 self.assertListEqual([], icontract_lint.check_file(path=pth))
 
     def test_post_valid_without_returns(self):
@@ -305,11 +326,13 @@ class TestCheckFile(unittest.TestCase):
                     return x
                 """)
 
-        with temppathlib.TemporaryDirectory() as tmp:
-            pth = tmp.path / "some_module.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+
+            pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp.path):
+            with sys_path_with(tmp_path):
                 self.assertListEqual([], icontract_lint.check_file(path=pth))
 
     def test_post_result_none(self):
@@ -326,11 +349,13 @@ class TestCheckFile(unittest.TestCase):
                     return x
                 """)
 
-        with temppathlib.TemporaryDirectory() as tmp:
-            pth = tmp.path / "some_module.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+
+            pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp.path):
+            with sys_path_with(tmp_path):
                 errors = icontract_lint.check_file(path=pth)
 
                 self.assertEqual(3, len(errors))
@@ -339,7 +364,7 @@ class TestCheckFile(unittest.TestCase):
                         {
                             'identifier': 'post-result-none',
                             'description': 'Function is annotated to return None, but postcondition expects a result.',
-                            'filename': pth.as_posix(),
+                            'filename': str(pth),
                             'lineno': lineno
                         }, err.as_mapping())
 
@@ -357,11 +382,13 @@ class TestCheckFile(unittest.TestCase):
                     return y
                 """)
 
-        with temppathlib.TemporaryDirectory() as tmp:
-            pth = tmp.path / "some_module.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+
+            pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp.path):
+            with sys_path_with(tmp_path):
                 errors = icontract_lint.check_file(path=pth)
                 self.assertEqual(3, len(errors))
 
@@ -370,7 +397,7 @@ class TestCheckFile(unittest.TestCase):
                         {
                             'identifier': 'post-invalid-arg',
                             'description': 'Postcondition argument(s) are missing in the function signature: x',
-                            'filename': pth.as_posix(),
+                            'filename': str(pth),
                             'lineno': lineno
                         }, err.as_mapping())
 
@@ -388,11 +415,13 @@ class TestCheckFile(unittest.TestCase):
                     return result
                 """)
 
-        with temppathlib.TemporaryDirectory() as tmp:
-            pth = tmp.path / "some_module.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+
+            pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp.path):
+            with sys_path_with(tmp_path):
                 errors = icontract_lint.check_file(path=pth)
                 self.assertEqual(3, len(errors))
 
@@ -400,7 +429,7 @@ class TestCheckFile(unittest.TestCase):
                     self.assertDictEqual({
                         'identifier': 'post-result-conflict',
                         'description': "Function argument 'result' conflicts with the postcondition.",
-                        'filename': pth.as_posix(),
+                        'filename': str(pth),
                         'lineno': lineno
                     }, err.as_mapping())
 
@@ -417,11 +446,13 @@ class TestCheckFile(unittest.TestCase):
                     return value
                 """)
 
-        with temppathlib.TemporaryDirectory() as tmp:
-            pth = tmp.path / "some_module.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+
+            pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp.path):
+            with sys_path_with(tmp_path):
                 errors = icontract_lint.check_file(path=pth)
                 self.assertEqual(1, len(errors))
 
@@ -429,7 +460,7 @@ class TestCheckFile(unittest.TestCase):
                     self.assertDictEqual({
                         'identifier': 'post-old-conflict',
                         'description': "Function argument 'OLD' conflicts with the postcondition.",
-                        'filename': pth.as_posix(),
+                        'filename': str(pth),
                         'lineno': lineno
                     }, err.as_mapping())
 
@@ -448,11 +479,13 @@ class TestCheckFile(unittest.TestCase):
                         self.x = 22
                 """)
 
-        with temppathlib.TemporaryDirectory() as tmp:
-            pth = tmp.path / "some_module.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+
+            pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp.path):
+            with sys_path_with(tmp_path):
                 errors = icontract_lint.check_file(path=pth)
                 self.assertListEqual([], errors)
 
@@ -471,11 +504,13 @@ class TestCheckFile(unittest.TestCase):
                         self.x = 22
                 """)
 
-        with temppathlib.TemporaryDirectory() as tmp:
-            pth = tmp.path / "some_module.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+
+            pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp.path):
+            with sys_path_with(tmp_path):
                 errors = icontract_lint.check_file(path=pth)
                 self.assertEqual(3, len(errors))
 
@@ -485,7 +520,7 @@ class TestCheckFile(unittest.TestCase):
                         'identifier': 'inv-invalid-arg',
                         'description': "An invariant expects one and only argument 'self', "
                                        "but the arguments are: ['selfie']",
-                        'filename': pth.as_posix(),
+                        'filename': str(pth),
                         'lineno': lineno
                     }, err.as_mapping())
                     # yapf: enable
@@ -500,11 +535,13 @@ class TestCheckFile(unittest.TestCase):
                         self.x = 22
                 """)
 
-        with temppathlib.TemporaryDirectory() as tmp:
-            pth = tmp.path / "some_module.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+
+            pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp.path):
+            with sys_path_with(tmp_path):
                 errors = icontract_lint.check_file(path=pth)
                 self.assertEqual(1, len(errors))
 
@@ -513,7 +550,7 @@ class TestCheckFile(unittest.TestCase):
                 self.assertDictEqual({
                     'identifier': 'no-condition',
                     'description': 'The contract decorator lacks the condition.',
-                    'filename': pth.as_posix(),
+                    'filename': str(pth),
                     'lineno': 3
                 }, err.as_mapping())
 
@@ -526,11 +563,13 @@ class TestCheckFile(unittest.TestCase):
                     return x
                 """)
 
-        with temppathlib.TemporaryDirectory() as tmp:
-            pth = tmp.path / "some_module.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+
+            pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp.path):
+            with sys_path_with(tmp_path):
                 errors = icontract_lint.check_file(path=pth)
                 self.assertEqual(1, len(errors))
 
@@ -539,19 +578,23 @@ class TestCheckFile(unittest.TestCase):
                 self.assertDictEqual({
                     'identifier': 'invalid-syntax',
                     'description': 'invalid syntax',
-                    'filename': pth.as_posix(),
+                    'filename': str(pth),
                     'lineno': 3
                 }, err.as_mapping())
 
 
 class TestCheckPaths(unittest.TestCase):
     def test_empty(self):
-        with temppathlib.TemporaryDirectory() as tmp:
-            errs = icontract_lint.check_paths(paths=[tmp.path])
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+
+            errs = icontract_lint.check_paths(paths=[tmp_path])
             self.assertListEqual([], errs)
 
     def test_file(self):
-        with temppathlib.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+
             text = textwrap.dedent("""\
                 from icontract import require
 
@@ -560,10 +603,10 @@ class TestCheckPaths(unittest.TestCase):
                     return x
                 """)
 
-            pth = tmp.path / "some_module.py"
+            pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp.path):
+            with sys_path_with(tmp_path):
                 errors = icontract_lint.check_paths(paths=[pth])
                 self.assertEqual(1, len(errors))
 
@@ -572,12 +615,14 @@ class TestCheckPaths(unittest.TestCase):
                 self.assertDictEqual({
                     'identifier': 'invalid-syntax',
                     'description': 'invalid syntax',
-                    'filename': pth.as_posix(),
+                    'filename': str(pth),
                     'lineno': 3
                 }, err.as_mapping())
 
     def test_directory(self):
-        with temppathlib.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+
             text = textwrap.dedent("""\
                 from icontract import require
 
@@ -586,11 +631,11 @@ class TestCheckPaths(unittest.TestCase):
                     return x
                 """)
 
-            pth = tmp.path / "some_module.py"
+            pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp.path):
-                errors = icontract_lint.check_paths(paths=[tmp.path])
+            with sys_path_with(tmp_path):
+                errors = icontract_lint.check_paths(paths=[tmp_path])
                 self.assertEqual(1, len(errors))
 
                 err = errors[0]
@@ -598,7 +643,7 @@ class TestCheckPaths(unittest.TestCase):
                 self.assertDictEqual({
                     'identifier': 'invalid-syntax',
                     'description': 'invalid syntax',
-                    'filename': pth.as_posix(),
+                    'filename': str(pth),
                     'lineno': 3
                 }, err.as_mapping())
 
