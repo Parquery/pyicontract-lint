@@ -486,12 +486,12 @@ def check_file(path: pathlib.Path) -> List[Error]:
             return []
 
     try:
-        modname = ".".join(astroid.modutils.modpath_from_file(filename=path.as_posix()))
+        modname = ".".join(astroid.modutils.modpath_from_file(filename=str(path)))
     except ImportError:
         modname = '<unknown module>'
 
     try:
-        tree = astroid.parse(code=text, module_name=modname, path=path.as_posix())
+        tree = astroid.parse(code=text, module_name=modname, path=str(path))
     except astroid.exceptions.AstroidSyntaxError as err:
         cause = err.__cause__
         assert isinstance(cause, SyntaxError)
@@ -502,11 +502,11 @@ def check_file(path: pathlib.Path) -> List[Error]:
             Error(
                 identifier=ErrorID.INVALID_SYNTAX,
                 description=cause.msg,  # pylint: disable=no-member
-                filename=path.as_posix(),
+                filename=str(path),
                 lineno=lineno)  # pylint: disable=no-member
         ]
 
-    lint_visitor = _LintVisitor(filename=path.as_posix())
+    lint_visitor = _LintVisitor(filename=str(path))
     lint_visitor.visit(node=tree)
 
     return lint_visitor.errors

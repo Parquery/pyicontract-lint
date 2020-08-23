@@ -3,11 +3,10 @@
 import io
 import pathlib
 import sys
+import tempfile
 import textwrap
 import unittest
 from typing import TextIO, cast
-
-import temppathlib
 
 import icontract_lint.main
 
@@ -51,11 +50,11 @@ class sys_path_with:  # pylint: disable=invalid-name,duplicate-code
 
     def __enter__(self):
         """Add the path to the ``sys.path``."""
-        sys.path.insert(0, self.path.as_posix())
+        sys.path.insert(0, str(self.path))
 
     def __exit__(self, exc_type, exc_value, traceback):
         """Remove the path from the ``sys.path``."""
-        sys.path.remove(self.path.as_posix())
+        sys.path.remove(str(self.path))
 
 
 class TestMain(unittest.TestCase):
@@ -69,15 +68,15 @@ class TestMain(unittest.TestCase):
                 """)
 
     def test_json(self):
-        with temppathlib.TemporaryDirectory() as tmp:
-            pth = tmp.path / "some_module.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            pth = tmp_path / "some_module.py"
             pth.write_text(TestMain.TEXT)
 
-            with sys_path_with(tmp.path):
+            with sys_path_with(tmp_path):
                 buf = io.StringIO()
                 stream = cast(TextIO, buf)
-                args = icontract_lint.main.parse_args(
-                    sys_argv=["some-executable.py", pth.as_posix(), "--format", "json"])
+                args = icontract_lint.main.parse_args(sys_argv=["some-executable.py", str(pth), "--format", "json"])
 
                 retcode = icontract_lint.main._main(args=args, stream=stream)
 
@@ -91,36 +90,38 @@ class TestMain(unittest.TestCase):
                     "filename": "{pth}",
                     "lineno": 3
                   }}
-                ]""".format(pth=pth.as_posix())),
+                ]""".format(pth=str(pth).replace("\\", "\\\\"))),
                     buf.getvalue())
 
     def test_verbose(self):
-        with temppathlib.TemporaryDirectory() as tmp:
-            pth = tmp.path / "some_module.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            pth = tmp_path / "some_module.py"
             pth.write_text(TestMain.TEXT)
 
-            with sys_path_with(tmp.path):
+            with sys_path_with(tmp_path):
                 buf = io.StringIO()
                 stream = cast(TextIO, buf)
-                args = icontract_lint.main.parse_args(sys_argv=["some-executable.py", pth.as_posix()])
+                args = icontract_lint.main.parse_args(sys_argv=["some-executable.py", str(pth)])
 
                 retcode = icontract_lint.main._main(args=args, stream=stream)
 
                 self.assertEqual(1, retcode)
                 self.assertEqual(
                     ("{pth}:3: Precondition argument(s) are missing in "
-                     "the function signature: x (pre-invalid-arg)\n").format(pth=pth.as_posix()),
+                     "the function signature: x (pre-invalid-arg)\n").format(pth=str(pth)),
                     buf.getvalue())
 
     def test_dont_panic(self):
-        with temppathlib.TemporaryDirectory() as tmp:
-            pth = tmp.path / "some_module.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            pth = tmp_path / "some_module.py"
             pth.write_text(TestMain.TEXT)
 
-            with sys_path_with(tmp.path):
+            with sys_path_with(tmp_path):
                 buf = io.StringIO()
                 stream = cast(TextIO, buf)
-                args = icontract_lint.main.parse_args(sys_argv=["some-executable.py", pth.as_posix(), "--dont_panic"])
+                args = icontract_lint.main.parse_args(sys_argv=["some-executable.py", str(pth), "--dont_panic"])
 
                 retcode = icontract_lint.main._main(args=args, stream=stream)
 

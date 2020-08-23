@@ -50,8 +50,7 @@ setup(
             'yapf==0.20.2',
             'tox>=3.0.0',
             'pydocstyle>=2.1.1,<3',
-            'coverage>=4.5.1,<5',
-            'temppathlib>=1.0.3,<2'
+            'coverage>=4.5.1,<5'
             # yapf: enable
         ],
     },

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Runs precommit checks on the repository."""
+"""Run precommit checks on the repository."""
 import argparse
 import os
 import pathlib
+import platform
 import subprocess
 import sys
 
@@ -31,23 +32,23 @@ def main() -> int:
                 "yapf", "--in-place", "--style=style.yapf", "--recursive", "tests", "icontract_lint", "setup.py",
                 "precommit.py"
             ],
-            cwd=repo_root.as_posix())
+            cwd=str(repo_root))
     else:
         subprocess.check_call(
             [
                 "yapf", "--diff", "--style=style.yapf", "--recursive", "tests", "icontract_lint", "setup.py",
                 "precommit.py"
             ],
-            cwd=repo_root.as_posix())
+            cwd=str(repo_root))
 
     print("Mypy'ing...")
-    subprocess.check_call(["mypy", "icontract_lint", "tests"], cwd=repo_root.as_posix())
+    subprocess.check_call(["mypy", "icontract_lint", "tests"], cwd=str(repo_root))
 
     print("Pylint'ing...")
-    subprocess.check_call(["pylint", "--rcfile=pylint.rc", "tests", "icontract_lint"], cwd=repo_root.as_posix())
+    subprocess.check_call(["pylint", "--rcfile=pylint.rc", "tests", "icontract_lint"], cwd=str(repo_root))
 
     print("Pydocstyle'ing...")
-    subprocess.check_call(["pydocstyle", "icontract_lint"], cwd=repo_root.as_posix())
+    subprocess.check_call(["pydocstyle", "icontract_lint"], cwd=str(repo_root))
 
     print("Testing...")
     env = os.environ.copy()
@@ -58,16 +59,21 @@ def main() -> int:
         ["coverage", "run",
          "--source", "icontract_lint",
          "-m", "unittest", "discover", "tests"],
-        cwd=repo_root.as_posix(),
+        cwd=str(repo_root),
         env=env)
     # yapf: enable
 
     subprocess.check_call(["coverage", "report"])
 
     print("Doctesting...")
-    subprocess.check_call(["python3", "-m", "doctest", "README.rst"])
+    if platform.system() == 'Windows':
+        interpreter = 'py'
+    else:
+        interpreter = 'python3'
+
+    subprocess.check_call([interpreter, "-m", "doctest", "README.rst"], cwd=str(repo_root))
     for pth in (repo_root / "icontract_lint").glob("**/*.py"):
-        subprocess.check_call(["python3", "-m", "doctest", pth.as_posix()])
+        subprocess.check_call([interpreter, "-m", "doctest", str(pth)], cwd=str(repo_root))
 
     return 0
 
