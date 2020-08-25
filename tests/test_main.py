@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Test the main routine."""
 import io
+import os
 import pathlib
 import sys
 import tempfile
@@ -93,6 +94,20 @@ class TestMain(unittest.TestCase):
                 ]""".format(pth=str(pth).replace("\\", "\\\\"))),
                     buf.getvalue())
 
+    def test_verbose_no_errors(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            pth = tmp_path / "some-executable.py"
+            pth.write_text('"""all ok"""')
+
+            buf = io.StringIO()
+            stream = cast(TextIO, buf)
+            args = icontract_lint.main.parse_args(sys_argv=[str(pth)])
+            retcode = icontract_lint.main._main(args=args, stream=stream)
+
+            self.assertEqual(0, retcode)
+            self.assertEqual(("No errors detected.{}").format(os.linesep), buf.getvalue())
+
     def test_verbose(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = pathlib.Path(tmp)
@@ -107,10 +122,9 @@ class TestMain(unittest.TestCase):
                 retcode = icontract_lint.main._main(args=args, stream=stream)
 
                 self.assertEqual(1, retcode)
-                self.assertEqual(
-                    ("{pth}:3: Precondition argument(s) are missing in "
-                     "the function signature: x (pre-invalid-arg)\n").format(pth=str(pth)),
-                    buf.getvalue())
+                self.assertEqual(("{}:3: Precondition argument(s) are missing in "
+                                  "the function signature: x (pre-invalid-arg){}").format(str(pth), os.linesep),
+                                 buf.getvalue())
 
     def test_dont_panic(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -134,7 +148,7 @@ class TestMain(unittest.TestCase):
 
         retcode = icontract_lint.main._main(args=args, stream=stream)
         self.assertEqual(0, retcode)
-        self.assertEqual('{}\n'.format(pyicontract_lint_meta.__version__), buf.getvalue())
+        self.assertEqual('{}{}'.format(pyicontract_lint_meta.__version__, os.linesep), buf.getvalue())
 
 
 if __name__ == '__main__':

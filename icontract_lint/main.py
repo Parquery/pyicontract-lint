@@ -4,6 +4,7 @@
 # This file is necessary so that we can specify the entry point for pex.
 
 import argparse
+import os
 import pathlib
 import sys
 from typing import List, Any, TextIO
@@ -42,13 +43,16 @@ def parse_args(sys_argv: List[str]) -> Args:
 def _main(args: Args, stream: TextIO) -> int:
     """Execute the main routine."""
     if args.version:
-        stream.write("{}\n".format(pyicontract_lint_meta.__version__))
+        stream.write("{}{}".format(pyicontract_lint_meta.__version__, os.linesep))
         return 0
 
     errors = icontract_lint.check_paths(paths=args.paths)
 
     if args.format == 'verbose':
-        icontract_lint.output_verbose(errors=errors, stream=stream)
+        if not errors:
+            stream.write("No errors detected.{}".format(os.linesep))
+        else:
+            icontract_lint.output_verbose(errors=errors, stream=stream)
     elif args.format == 'json':
         icontract_lint.output_json(errors=errors, stream=stream)
     else:

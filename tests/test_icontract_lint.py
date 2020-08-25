@@ -2,6 +2,7 @@
 
 # pylint: disable=missing-docstring
 import io
+import os
 import pathlib
 import sys
 import tempfile
@@ -725,8 +726,9 @@ class TestOutputVerbose(unittest.TestCase):
 
         icontract_lint.output_verbose(errors=errs, stream=stream)
 
-        self.assertEqual('/path/to/some/file.py:123: The contract decorator lacks the condition. (no-condition)\n',
-                         buf.getvalue())
+        self.assertEqual(
+            '/path/to/some/file.py:123: The contract decorator lacks the condition. (no-condition){}'.format(
+                os.linesep), buf.getvalue())
 
 
 class TestOutputJson(unittest.TestCase):

@@ -2,6 +2,7 @@
 import collections
 import enum
 import json
+import os
 import pathlib
 import re
 import sys
@@ -589,9 +590,10 @@ def output_verbose(errors: List[Error], stream: TextIO) -> None:
     """
     for err in errors:
         if err.lineno is not None:
-            stream.write("{}:{}: {} ({})\n".format(err.filename, err.lineno, err.description, err.identifier.value))
+            stream.write("{}:{}: {} ({}){}".format(err.filename, err.lineno, err.description, err.identifier.value,
+                                                   os.linesep))
         else:
-            stream.write("{}: {} ({})\n".format(err.filename, err.description, err.identifier.value))
+            stream.write("{}: {} ({}){}".format(err.filename, err.description, err.identifier.value, os.linesep))
 
 
 def output_json(errors: List[Error], stream: TextIO) -> None:
