@@ -7,6 +7,7 @@ import sys
 import tempfile
 import textwrap
 import unittest
+import unittest.mock
 from typing import List, cast, TextIO
 
 import icontract_lint
@@ -26,6 +27,58 @@ class sys_path_with:  # pylint: disable=invalid-name
     def __exit__(self, exc_type, exc_value, traceback):
         """Remove the path from the ``sys.path``."""
         sys.path.remove(str(self.path))
+
+
+class TestCheckUnreadableFile(unittest.TestCase):
+    def test_read_failure(self) -> None:
+        # pylint: disable=no-self-use
+        class MockPath:
+            def read_text(self) -> str:
+                raise Exception("dummy exception")
+
+            def is_file(self) -> bool:
+                return True
+
+            def __str__(self) -> str:
+                return "some-path"
+
+        pth = cast(pathlib.Path, MockPath())
+        errors = icontract_lint.check_file(path=pth)
+
+        self.assertEqual(1, len(errors))
+        self.assertDictEqual({
+            'identifier': 'unreadable',
+            'description': 'dummy exception',
+            'filename': str(pth),
+        }, errors[0].as_mapping())  # type: ignore
+
+    def test_parse_failure(self) -> None:
+        # pylint: disable=no-self-use
+        class MockPath:
+            def read_text(self) -> str:
+                return "dummy content"
+
+            def is_file(self) -> bool:
+                return True
+
+            def __str__(self) -> str:
+                return "some-path"
+
+        pth = cast(pathlib.Path, MockPath())
+
+        with unittest.mock.patch('astroid.parse') as astroid_parse:
+
+            def blow_up(*args, **kwargs) -> None:
+                raise Exception("dummy exception")
+
+            astroid_parse.side_effect = blow_up
+
+            errors = icontract_lint.check_file(path=pth)
+
+            self.assertEqual(1, len(errors))
+            self.assertEqual('unreadable', errors[0].identifier.value)
+            self.assertTrue(errors[0].description.startswith("Astroid failed to parse the file: dummy exception ("))
+            self.assertEqual(str(pth), errors[0].filename)
 
 
 class TestCheckFile(unittest.TestCase):

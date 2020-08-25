@@ -27,6 +27,8 @@ The following checks are performed:
 +---------------------------------------------------------------------------------------+----------------------+
 | Description                                                                           | Identifier           |
 +=======================================================================================+======================+
+| File should be read and decoded correctly.                                            | unreadable           |
++---------------------------------------------------------------------------------------+----------------------+
 | A preconditions expects a subset of function's arguments.                             | pre-invalid-arg      |
 +---------------------------------------------------------------------------------------+----------------------+
 | A snapshot expects at most an argument element of the function's arguments.           | snapshot-invalid-arg |

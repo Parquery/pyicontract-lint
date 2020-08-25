@@ -4,6 +4,8 @@ import enum
 import json
 import pathlib
 import re
+import sys
+import traceback
 from typing import Set, List, Mapping, Optional, TextIO, Any
 
 import astroid
@@ -27,6 +29,7 @@ __copyright__ = pyicontract_lint_meta.__copyright__
 class ErrorID(enum.Enum):
     """Enumerate error identifiers."""
 
+    UNREADABLE = "unreadable"
     PRE_INVALID_ARG = "pre-invalid-arg"
     SNAPSHOT_INVALID_ARG = "snapshot-invalid-arg"
     SNAPSHOT_WO_CAPTURE = "snapshot-wo-capture"
@@ -42,7 +45,7 @@ class ErrorID(enum.Enum):
 
 @icontract.invariant(lambda self: len(self.description) > 0)
 @icontract.invariant(lambda self: len(self.filename) > 0)
-@icontract.invariant(lambda self: self.lineno >= 1)
+@icontract.invariant(lambda self: self.lineno is None or self.lineno >= 1)
 class Error:
     """
     Represent a linter error.
@@ -64,8 +67,8 @@ class Error:
 
     @icontract.require(lambda description: len(description) > 0)
     @icontract.require(lambda filename: len(filename) > 0)
-    @icontract.require(lambda lineno: lineno >= 1)
-    def __init__(self, identifier: ErrorID, description: str, filename: str, lineno: int) -> None:
+    @icontract.require(lambda lineno: lineno is None or lineno >= 1)
+    def __init__(self, identifier: ErrorID, description: str, filename: str, lineno: Optional[int]) -> None:
         """Initialize with the given properties."""
         self.identifier = identifier
         self.description = description
@@ -74,8 +77,19 @@ class Error:
 
     def as_mapping(self) -> Mapping[str, Any]:
         """Transform the error to a mapping that can be converted to JSON and similar formats."""
-        return collections.OrderedDict([("identifier", self.identifier.value), ("description", str(self.description)),
-                                        ("filename", self.filename), ("lineno", self.lineno)])
+        # yapf: disable
+        result = collections.OrderedDict(
+            [
+                ("identifier", self.identifier.value),
+                ("description", str(self.description)),
+                ("filename", self.filename)
+            ])
+        # yapf: enable
+
+        if self.lineno is not None:
+            result['lineno'] = self.lineno
+
+        return result
 
 
 class _AstroidVisitor:
@@ -479,7 +493,10 @@ def check_file(path: pathlib.Path) -> List[Error]:
     :param path: path to the file
     :return: list of lint errors
     """
-    text = path.read_text()
+    try:
+        text = path.read_text()
+    except Exception as err:  # pylint: disable=broad-except
+        return [Error(identifier=ErrorID.UNREADABLE, description=str(err), filename=str(path), lineno=None)]
 
     for line in text.splitlines():
         if _DISABLED_DIRECTIVE_RE.match(line):
@@ -496,14 +513,27 @@ def check_file(path: pathlib.Path) -> List[Error]:
         cause = err.__cause__
         assert isinstance(cause, SyntaxError)
 
-        lineno = -1 if cause.lineno is None else cause.lineno  # pylint: disable=no-member
-
         return [
             Error(
                 identifier=ErrorID.INVALID_SYNTAX,
                 description=cause.msg,  # pylint: disable=no-member
                 filename=str(path),
-                lineno=lineno)  # pylint: disable=no-member
+                lineno=cause.lineno)  # pylint: disable=no-member
+        ]
+    except Exception as err:  # pylint: disable=broad-except
+        stack_summary = traceback.extract_tb(sys.exc_info()[2])
+        if len(stack_summary) == 0:
+            raise AssertionError("Expected at least one element in the traceback") from err
+
+        last_frame = stack_summary[-1]  # type: traceback.FrameSummary
+
+        return [
+            Error(
+                identifier=ErrorID.UNREADABLE,
+                description="Astroid failed to parse the file: {} ({} at line {} in {})".format(
+                    err, last_frame.filename, last_frame.lineno, last_frame.name),
+                filename=str(path),
+                lineno=None)
         ]
 
     lint_visitor = _LintVisitor(filename=str(path))
@@ -558,7 +588,10 @@ def output_verbose(errors: List[Error], stream: TextIO) -> None:
     :return:
     """
     for err in errors:
-        stream.write("{}:{}: {} ({})\n".format(err.filename, err.lineno, err.description, err.identifier.value))
+        if err.lineno is not None:
+            stream.write("{}:{}: {} ({})\n".format(err.filename, err.lineno, err.description, err.identifier.value))
+        else:
+            stream.write("{}: {} ({})\n".format(err.filename, err.description, err.identifier.value))
 
 
 def output_json(errors: List[Error], stream: TextIO) -> None:
