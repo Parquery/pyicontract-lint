@@ -1,3 +1,9 @@
+2.1.0
+=====
+* Made handling of paths platform-dependent
+* Introduced graceful handling of read and parse failures
+* Added output on no errors if verbose
+
 2.0.1
 =====
 * Replaced scripts with entry points (in order to support Windows)
