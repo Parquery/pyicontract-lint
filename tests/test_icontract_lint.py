@@ -82,6 +82,46 @@ class TestCheckUnreadableFile(unittest.TestCase):
             self.assertEqual(str(pth), errors[0].filename)
 
 
+class TestUninferrableDecorator(unittest.TestCase):
+    def test_astroid_name_inference_error(self):
+        text = textwrap.dedent("""\
+                @some_uninferrable_decorator
+                def some_func(x: int) -> int:
+                    pass
+                """)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            pth = tmp_path / "some_module.py"
+            pth.write_text(text)
+
+            with sys_path_with(tmp_path):
+                errors = icontract_lint.check_file(path=pth)
+                self.assertListEqual([], errors)
+
+    def test_astroid_inferrence_error(self):
+        # This example was adapted from the issue https://github.com/Parquery/pyicontract-lint/issues/27.
+        text = textwrap.dedent("""\
+                class RuleTable:
+                    @classinstancemethod
+                    def insert_rule(cls, index, rule_):
+                        pass
+        
+                    @insert_rule.instancemethod
+                    def insert_rule(self, index, rule_):
+                        pass
+                """)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            pth = tmp_path / "some_module.py"
+            pth.write_text(text)
+
+            with sys_path_with(tmp_path):
+                errors = icontract_lint.check_file(path=pth)
+                self.assertListEqual([], errors)
+
+
 class TestCheckFile(unittest.TestCase):
     def test_wo_contracts(self):
         text = textwrap.dedent("""\
@@ -99,23 +139,6 @@ class TestCheckFile(unittest.TestCase):
                     @staticmethod
                     def some_static_method(self, x: int) -> int:
                         pass
-                """)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = pathlib.Path(tmp)
-            pth = tmp_path / "some_module.py"
-            pth.write_text(text)
-
-            with sys_path_with(tmp_path):
-                errors = icontract_lint.check_file(path=pth)
-
-                self.assertListEqual([], errors)
-
-    def test_uninferrable_decorator(self):
-        text = textwrap.dedent("""\
-                @some_uninferrable_decorator
-                def some_func(x: int) -> int:
-                    pass
                 """)
 
         with tempfile.TemporaryDirectory() as tmp:

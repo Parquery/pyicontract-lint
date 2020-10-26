@@ -351,25 +351,6 @@ class _LintVisitor(_AstroidVisitor):
         else:
             raise NotImplementedError("Unhandled pytype: {}".format(pytype))
 
-    def _infer_decorator(self, node: astroid.nodes.Call) -> Optional[astroid.bases.Instance]:
-        """
-        Try to infer the decorator as instance of a class.
-
-        :param node: decorator AST node
-        :return: instance of the decorator or None if decorator instance could not be inferred
-        """
-        # While this function does not use ``self``, keep it close to the usage to improve the readability.
-        # pylint: disable=no-self-use
-        try:
-            decorator = next(node.infer())
-        except astroid.exceptions.NameInferenceError:
-            return None
-
-        if decorator is astroid.Uninferable:
-            return None
-
-        return decorator
-
     def visit_FunctionDef(self, node: astroid.nodes.FunctionDef) -> None:  # pylint: disable=invalid-name
         """Lint the function definition."""
         if node.decorators is None:
@@ -394,7 +375,25 @@ class _LintVisitor(_AstroidVisitor):
                 pass
 
         # Infer the decorator instances
-        decorators = [self._infer_decorator(node=decorator_node) for decorator_node in node.decorators.nodes]
+
+        def infer_decorator(a_node: astroid.nodes.Call) -> Optional[astroid.bases.Instance]:
+            """
+            Try to infer the decorator as instance of a class.
+
+            :param a_node: decorator AST node
+            :return: instance of the decorator or None if decorator instance could not be inferred
+            """
+            try:
+                decorator = next(a_node.infer())
+            except (astroid.exceptions.NameInferenceError, astroid.exceptions.InferenceError):
+                return None
+
+            if decorator is astroid.Uninferable:
+                return None
+
+            return decorator
+
+        decorators = [infer_decorator(a_node=decorator_node) for decorator_node in node.decorators.nodes]
 
         # Check the decorators individually
         for decorator, decorator_node in zip(decorators, node.decorators.nodes):
