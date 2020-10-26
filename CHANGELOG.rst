@@ -1,3 +1,10 @@
+2.1.1
+=====
+* Started ignoring Astroid inference errors in decorators.
+
+  This is critical so that files can be processed even though Astroid
+  fails to correctly infer all the decorators.
+
 2.1.0
 =====
 * Made handling of paths platform-dependent
