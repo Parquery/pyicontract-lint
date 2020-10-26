@@ -5,6 +5,10 @@ on:
   release:
     types: [created]
 
+  push:
+    branches:
+      - '*/fixed-publishing-to-pypi'
+
 jobs:
   deploy:
 
@@ -25,7 +29,7 @@ jobs:
 
     - name: Build and publish
       env:
-        TWINE_USERNAME: mristin
+        TWINE_USERNAME: "__token__"
         TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
       run: |
         python setup.py sdist
