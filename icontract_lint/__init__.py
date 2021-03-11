@@ -275,13 +275,16 @@ class _LintVisitor(_AstroidVisitor):
         """
         # Find the ``capture=...`` node
         capture_node = None  # type: Optional[astroid.node_classes.NodeNG]
-        if node.args:
+
+        if node.args and len(node.args) >= 1:
             capture_node = node.args[0]
-        elif node.keywords:
+
+        if capture_node is None and node.keywords:
             for keyword_node in node.keywords:
                 if keyword_node.arg == "capture":
                     capture_node = keyword_node.value
-        else:
+
+        if capture_node is None:
             self.errors.append(
                 Error(
                     identifier=ErrorID.SNAPSHOT_WO_CAPTURE,

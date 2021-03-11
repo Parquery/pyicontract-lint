@@ -96,6 +96,35 @@ class TestSnapshot(unittest.TestCase):
                         'lineno': lineno
                     }, err.as_mapping())
 
+    def test_without_capture(self) -> None:
+        text = textwrap.dedent("""\
+            from typing import List
+            from icontract import ensure, snapshot
+
+            @snapshot(name="some_value_without_capture")
+            @ensure(lambda OLD, lst: OLD.some_value_without_capture + [value] == lst)
+            def some_func(lst: List[int], value: int) -> None:
+                lst.append(value)
+            """)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+
+            pth = tmp_path / "some_module.py"
+            pth.write_text(text)
+
+            with tests.common.sys_path_with(tmp_path):
+                errors = icontract_lint.check_file(path=pth)
+
+                self.assertEqual(1, len(errors))
+
+                self.assertDictEqual({
+                    'identifier': 'snapshot-wo-capture',
+                    'description': 'The snapshot decorator lacks the capture function.',
+                    'filename': str(pth),
+                    'lineno': 4
+                }, errors[0].as_mapping())  # type: ignore
+
 
 if __name__ == '__main__':
     unittest.main()
