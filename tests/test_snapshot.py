@@ -34,6 +34,29 @@ class TestSnapshot(unittest.TestCase):
                 errors = icontract_lint.check_file(path=pth)
                 self.assertListEqual([], errors)
 
+    def test_multiple_args_are_ok(self):
+        # This is a regression test related to the issue #32.
+        text = textwrap.dedent("""\
+            from typing import List
+            from icontract import ensure, snapshot
+
+            @snapshot(lambda lst, another_lst: lst + another_lst, name="combined")
+            @ensure(lambda OLD: len(OLD.combined) > 0)
+            def some_func(lst: List[int], another_lst: List[int]) -> None:
+                pass
+            """)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+
+            pth = tmp_path / "some_module.py"
+            pth.write_text(text)
+
+            with tests.common.sys_path_with(tmp_path):
+                errors = icontract_lint.check_file(path=pth)
+
+                self.assertListEqual([], errors)
+
     def test_invalid_arg(self):
         text = textwrap.dedent("""\
             from typing import List
@@ -63,10 +86,38 @@ class TestSnapshot(unittest.TestCase):
                     self.assertDictEqual(
                         {
                             'identifier': 'snapshot-invalid-arg',
-                            'description': 'Snapshot argument is missing in the function signature: another_lst',
+                            'description': 'Snapshot argument(s) are missing in the function signature: another_lst',
                             'filename': str(pth),
                             'lineno': lineno
                         }, err.as_mapping())
+
+    def test_multiple_args_and_no_name(self) -> None:
+        text = textwrap.dedent("""\
+            from icontract import snapshot, ensure
+
+            @snapshot(lambda lst, another_lst: lst + another_lst)  # No name is specified here.
+            @ensure(lambda OLD, lst: OLD.lst + OLD.another_lst == lst)
+            def some_func(lst: List[int], another_lst: List[int]) -> None:
+                lst.extend(another_lst)
+            """)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+
+            pth = tmp_path / "some_module.py"
+            pth.write_text(text)
+
+            with tests.common.sys_path_with(tmp_path):
+                errors = icontract_lint.check_file(path=pth)
+                self.assertEqual(1, len(errors))
+
+                self.assertDictEqual(
+                    {
+                        'identifier': 'snapshot-wo-name',
+                        'description': 'Snapshot involves multiple arguments, but its name has not been specified.',
+                        'filename': str(pth),
+                        'lineno': 3
+                    }, errors[0].as_mapping())  # type: ignore
 
     def test_without_post(self):
         text = textwrap.dedent("""\
