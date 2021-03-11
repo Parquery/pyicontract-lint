@@ -4,7 +4,6 @@
 import io
 import os
 import pathlib
-import sys
 import tempfile
 import textwrap
 import unittest
@@ -12,22 +11,7 @@ import unittest.mock
 from typing import List, cast, TextIO
 
 import icontract_lint
-
-
-class sys_path_with:  # pylint: disable=invalid-name
-    """Add the path to the sys.path in the context."""
-
-    def __init__(self, path: pathlib.Path) -> None:
-        """Set property with the given argument."""
-        self.path = path
-
-    def __enter__(self):
-        """Add the path to the ``sys.path``."""
-        sys.path.insert(0, str(self.path))
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        """Remove the path from the ``sys.path``."""
-        sys.path.remove(str(self.path))
+import tests.common
 
 
 class TestCheckUnreadableFile(unittest.TestCase):
@@ -95,7 +79,7 @@ class TestUninferrableDecorator(unittest.TestCase):
             pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp_path):
+            with tests.common.sys_path_with(tmp_path):
                 errors = icontract_lint.check_file(path=pth)
                 self.assertListEqual([], errors)
 
@@ -117,7 +101,7 @@ class TestUninferrableDecorator(unittest.TestCase):
             pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp_path):
+            with tests.common.sys_path_with(tmp_path):
                 errors = icontract_lint.check_file(path=pth)
                 self.assertListEqual([], errors)
 
@@ -146,48 +130,20 @@ class TestCheckFile(unittest.TestCase):
             pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp_path):
+            with tests.common.sys_path_with(tmp_path):
                 errors = icontract_lint.check_file(path=pth)
                 self.assertListEqual([], errors)
 
-    def test_missing_condition(self):
+    def test_linter_disabled(self):
         text = textwrap.dedent("""\
-                from icontract import require
-
-                @require(description='hello')
-                def some_func(x: int) -> int:
-                    pass
-                """)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = pathlib.Path(tmp)
-            pth = tmp_path / "some_module.py"
-            pth.write_text(text)
-
-            with sys_path_with(tmp_path):
-                errors = icontract_lint.check_file(path=pth)
-
-                self.assertEqual(1, len(errors))
-                self.assertDictEqual({
-                    'identifier': 'no-condition',
-                    'description': 'The contract decorator lacks the condition.',
-                    'filename': str(pth),
-                    'lineno': 3
-                }, errors[0].as_mapping())
-
-    def test_pre_valid(self):
-        text = textwrap.dedent("""\
-                from icontract import require
-                
-                def lt_100(x: int) -> bool: 
-                    return x < 100
-                
-                @require(lambda x: x > 0)
-                @require(condition=lambda x: x % 2 == 0)
-                @require(lt_100)
-                def some_func(x: int) -> int:
-                    return x
-                """)
+            from icontract import require
+            
+            # pyicontract-lint: disabled
+            
+            @require(lambda x: x > 0, enabled=False)
+            def some_func(y: int) -> int:
+                return y
+            """)
 
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = pathlib.Path(tmp)
@@ -195,441 +151,10 @@ class TestCheckFile(unittest.TestCase):
             pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp_path):
+            with tests.common.sys_path_with(tmp_path):
                 errors = icontract_lint.check_file(path=pth)
 
                 self.assertListEqual([], errors)
-
-    def test_disabled(self):
-        text = textwrap.dedent("""\
-                        from icontract import require
-                        
-                        # pyicontract-lint: disabled
-                        
-                        @require(lambda x: x > 0)
-                        def some_func(y: int) -> int:
-                            return y
-                        """)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = pathlib.Path(tmp)
-
-            pth = tmp_path / "some_module.py"
-            pth.write_text(text)
-
-            with sys_path_with(tmp_path):
-                errors = icontract_lint.check_file(path=pth)
-
-                self.assertListEqual([], errors)
-
-    def test_pre_invalid_arg(self):
-        text = textwrap.dedent("""\
-                from icontract import require
-
-                def lt_100(x: int) -> bool: 
-                    return x < 100
-
-                @require(lambda x: x > 0)
-                @require(condition=lambda x: x % 2 == 0)
-                @require(lt_100)
-                def some_func(y: int) -> int:
-                    return y
-                    
-                class SomeClass:
-                    @require(lambda x: x > 0)
-                    def some_method(self, y: int) -> int:
-                        return y
-                """)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = pathlib.Path(tmp)
-
-            pth = tmp_path / "some_module.py"
-            pth.write_text(text)
-
-            with sys_path_with(tmp_path):
-                errors = icontract_lint.check_file(path=pth)
-
-                self.assertEqual(4, len(errors))
-
-                for err, lineno in zip(errors, [6, 7, 8, 13]):
-                    self.assertDictEqual(
-                        {
-                            'identifier': 'pre-invalid-arg',
-                            'description': 'Precondition argument(s) are missing in the function signature: x',
-                            'filename': str(pth),
-                            'lineno': lineno
-                        }, err.as_mapping())
-
-    def test_snapshot_valid(self):
-        text = textwrap.dedent("""\
-                from typing import List
-                from icontract import ensure, snapshot
-
-                def some_len(lst: List[int]) -> int:
-                    return len(lst)
-
-                @snapshot(lambda lst: lst[:])
-                @snapshot(capture=some_len, name="len_lst")
-                @ensure(lambda OLD, lst: OLD.lst + [value] == lst)
-                def some_func(lst: List[int], value: int) -> None:
-                    lst.append(value)
-                """)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = pathlib.Path(tmp)
-
-            pth = tmp_path / "some_module.py"
-            pth.write_text(text)
-
-            with sys_path_with(tmp_path):
-                errors = icontract_lint.check_file(path=pth)
-                self.assertListEqual([], errors)
-
-    def test_snapshot_invalid_arg(self):
-        text = textwrap.dedent("""\
-                        from typing import List
-                        from icontract import ensure, snapshot
-
-                        def some_len(another_lst: List[int]) -> int:
-                            return len(another_lst)
-
-                        @snapshot(lambda another_lst: another_lst[:])  # inconsistent with some_func
-                        @snapshot(some_len)  # inconsistent with some_func
-                        @ensure(lambda OLD, lst: OLD.lst + [value] == lst)
-                        def some_func(lst: List[int], value: int) -> None:
-                            lst.append(value)
-                        """)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = pathlib.Path(tmp)
-
-            pth = tmp_path / "some_module.py"
-            pth.write_text(text)
-
-            with sys_path_with(tmp_path):
-                errors = icontract_lint.check_file(path=pth)
-                self.assertEqual(2, len(errors))
-
-                for err, lineno in zip(errors, [7, 8]):
-                    self.assertDictEqual(
-                        {
-                            'identifier': 'snapshot-invalid-arg',
-                            'description': 'Snapshot argument is missing in the function signature: another_lst',
-                            'filename': str(pth),
-                            'lineno': lineno
-                        }, err.as_mapping())
-
-    def test_snapshot_wo_post(self):
-        text = textwrap.dedent("""\
-                        from typing import List
-                        from icontract import ensure, snapshot
-
-                        @snapshot(lambda lst: lst[:])  # no postcondition defined after the snapshot 
-                        def some_func(lst: List[int], value: int) -> None:
-                            lst.append(value)
-                        """)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = pathlib.Path(tmp)
-
-            pth = tmp_path / "some_module.py"
-            pth.write_text(text)
-
-            with sys_path_with(tmp_path):
-                errors = icontract_lint.check_file(path=pth)
-                self.assertEqual(1, len(errors))
-
-                for err, lineno in zip(errors, [4]):
-                    self.assertDictEqual({
-                        'identifier': 'snapshot-wo-post',
-                        'description': 'Snapshot defined on a function without a postcondition',
-                        'filename': str(pth),
-                        'lineno': lineno
-                    }, err.as_mapping())
-
-    def test_uninferrable_returns(self):
-        text = textwrap.dedent("""\
-                        from icontract import ensure
-
-                        @ensure(lambda result: result > 0)
-                        def some_func(x: int) -> SomeUninferrableClass:
-                            return x
-                        """)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = pathlib.Path(tmp)
-
-            pth = tmp_path / "some_module.py"
-            pth.write_text(text)
-
-            with sys_path_with(tmp_path):
-                self.assertListEqual([], icontract_lint.check_file(path=pth))
-
-    def test_post_valid(self):
-        text = textwrap.dedent("""\
-                from icontract import ensure
-
-                def lt_100(result: int) -> bool: 
-                    return result < 100
-
-                @ensure(lambda result: result > 0)
-                @ensure(condition=lambda result: result % 2 == 0)
-                @ensure(lt_100)
-                def some_func(x: int) -> int:
-                    return x
-                """)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = pathlib.Path(tmp)
-
-            pth = tmp_path / "some_module.py"
-            pth.write_text(text)
-
-            with sys_path_with(tmp_path):
-                self.assertListEqual([], icontract_lint.check_file(path=pth))
-
-    def test_post_valid_without_returns(self):
-        text = textwrap.dedent("""\
-                from icontract import ensure
-
-                def lt_100(result: int) -> bool: 
-                    return result < 100
-
-                @ensure(lambda result: result > 0)
-                @ensure(condition=lambda result: result % 2 == 0)
-                @ensure(lt_100)
-                def some_func(x: int):
-                    return x
-                """)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = pathlib.Path(tmp)
-
-            pth = tmp_path / "some_module.py"
-            pth.write_text(text)
-
-            with sys_path_with(tmp_path):
-                self.assertListEqual([], icontract_lint.check_file(path=pth))
-
-    def test_post_result_none(self):
-        text = textwrap.dedent("""\
-                from icontract import ensure
-
-                def lt_100(result: int) -> bool: 
-                    return result < 100
-
-                @ensure(lambda result: result > 0)
-                @ensure(condition=lambda result: result % 2 == 0)
-                @ensure(lt_100)
-                def some_func(x: int) -> None:
-                    return x
-                """)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = pathlib.Path(tmp)
-
-            pth = tmp_path / "some_module.py"
-            pth.write_text(text)
-
-            with sys_path_with(tmp_path):
-                errors = icontract_lint.check_file(path=pth)
-
-                self.assertEqual(3, len(errors))
-                for err, lineno in zip(errors, [6, 7, 8]):
-                    self.assertDictEqual(
-                        {
-                            'identifier': 'post-result-none',
-                            'description': 'Function is annotated to return None, but postcondition expects a result.',
-                            'filename': str(pth),
-                            'lineno': lineno
-                        }, err.as_mapping())
-
-    def test_post_invalid_args(self):
-        text = textwrap.dedent("""\
-                from icontract import ensure
-
-                def some_other_func(x: int, result: int) -> bool: 
-                    return result * x < 1000
-
-                @ensure(lambda x, result: result > x)
-                @ensure(condition=lambda x, result: result % x == 0)
-                @ensure(some_other_func)
-                def some_func(y: int) -> int:
-                    return y
-                """)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = pathlib.Path(tmp)
-
-            pth = tmp_path / "some_module.py"
-            pth.write_text(text)
-
-            with sys_path_with(tmp_path):
-                errors = icontract_lint.check_file(path=pth)
-                self.assertEqual(3, len(errors))
-
-                for err, lineno in zip(errors, [6, 7, 8]):
-                    self.assertDictEqual(
-                        {
-                            'identifier': 'post-invalid-arg',
-                            'description': 'Postcondition argument(s) are missing in the function signature: x',
-                            'filename': str(pth),
-                            'lineno': lineno
-                        }, err.as_mapping())
-
-    def test_post_result_conflict(self):
-        text = textwrap.dedent("""\
-                from icontract import ensure
-
-                def some_other_func(x: int, result: int) -> bool: 
-                    return result * x < 1000
-
-                @ensure(lambda x, result: result > x)
-                @ensure(condition=lambda x, result: result % x == 0)
-                @ensure(some_other_func)
-                def some_func(x: int, result: int) -> int:
-                    return result
-                """)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = pathlib.Path(tmp)
-
-            pth = tmp_path / "some_module.py"
-            pth.write_text(text)
-
-            with sys_path_with(tmp_path):
-                errors = icontract_lint.check_file(path=pth)
-                self.assertEqual(3, len(errors))
-
-                for err, lineno in zip(errors, [6, 7, 8]):
-                    self.assertDictEqual({
-                        'identifier': 'post-result-conflict',
-                        'description': "Function argument 'result' conflicts with the postcondition.",
-                        'filename': str(pth),
-                        'lineno': lineno
-                    }, err.as_mapping())
-
-    def test_post_old_conflict(self):
-        text = textwrap.dedent("""\
-                from typing import List
-
-                from icontract import ensure
-
-                @snapshot(lambda lst: lst[:])
-                @ensure(lambda OLD, lst, value: OLD.lst + [value] == lst)
-                def some_func(lst: List[int], value: int, OLD: int) -> int:  # OLD argument is conflicting
-                    lst.append(value)
-                    return value
-                """)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = pathlib.Path(tmp)
-
-            pth = tmp_path / "some_module.py"
-            pth.write_text(text)
-
-            with sys_path_with(tmp_path):
-                errors = icontract_lint.check_file(path=pth)
-                self.assertEqual(1, len(errors))
-
-                for err, lineno in zip(errors, [6]):
-                    self.assertDictEqual({
-                        'identifier': 'post-old-conflict',
-                        'description': "Function argument 'OLD' conflicts with the postcondition.",
-                        'filename': str(pth),
-                        'lineno': lineno
-                    }, err.as_mapping())
-
-    def test_inv_ok(self):
-        text = textwrap.dedent("""\
-                from icontract import invariant
-                
-                def lt_100(self) -> bool:
-                    return self.x < 100
-                
-                @invariant(lambda self: self.x > 0)
-                @invariant(condition=lambda self: self.x % 2 == 0)
-                @invariant(lt_100)
-                class SomeClass:
-                    def __init__(self) -> None:
-                        self.x = 22
-                """)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = pathlib.Path(tmp)
-
-            pth = tmp_path / "some_module.py"
-            pth.write_text(text)
-
-            with sys_path_with(tmp_path):
-                errors = icontract_lint.check_file(path=pth)
-                self.assertListEqual([], errors)
-
-    def test_inv_invalid_arg(self):
-        text = textwrap.dedent("""\
-                from icontract import invariant
-
-                def lt_100(selfie) -> bool:
-                    return selfie.x < 100
-
-                @invariant(lambda selfie: selfie.x > 0)
-                @invariant(condition=lambda selfie: selfie.x % 2 == 0)
-                @invariant(lt_100)
-                class SomeClass:
-                    def __init__(self) -> None:
-                        self.x = 22
-                """)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = pathlib.Path(tmp)
-
-            pth = tmp_path / "some_module.py"
-            pth.write_text(text)
-
-            with sys_path_with(tmp_path):
-                errors = icontract_lint.check_file(path=pth)
-                self.assertEqual(3, len(errors))
-
-                for err, lineno in zip(errors, [6, 7, 8]):
-                    # yapf: disable
-                    self.assertDictEqual({
-                        'identifier': 'inv-invalid-arg',
-                        'description': "An invariant expects one and only argument 'self', "
-                                       "but the arguments are: ['selfie']",
-                        'filename': str(pth),
-                        'lineno': lineno
-                    }, err.as_mapping())
-                    # yapf: enable
-
-    def test_no_condition_in_inv(self):
-        text = textwrap.dedent("""\
-                from icontract import invariant
-
-                @invariant(description='hello')
-                class SomeClass:
-                    def __init__(self) -> None:
-                        self.x = 22
-                """)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = pathlib.Path(tmp)
-
-            pth = tmp_path / "some_module.py"
-            pth.write_text(text)
-
-            with sys_path_with(tmp_path):
-                errors = icontract_lint.check_file(path=pth)
-                self.assertEqual(1, len(errors))
-
-                err = errors[0]
-
-                self.assertDictEqual({
-                    'identifier': 'no-condition',
-                    'description': 'The contract decorator lacks the condition.',
-                    'filename': str(pth),
-                    'lineno': 3
-                }, err.as_mapping())
 
     def test_syntax_error(self):
         text = textwrap.dedent("""\
@@ -646,7 +171,7 @@ class TestCheckFile(unittest.TestCase):
             pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp_path):
+            with tests.common.sys_path_with(tmp_path):
                 errors = icontract_lint.check_file(path=pth)
                 self.assertEqual(1, len(errors))
 
@@ -683,7 +208,7 @@ class TestCheckPaths(unittest.TestCase):
             pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp_path):
+            with tests.common.sys_path_with(tmp_path):
                 errors = icontract_lint.check_paths(paths=[pth])
                 self.assertEqual(1, len(errors))
 
@@ -711,7 +236,7 @@ class TestCheckPaths(unittest.TestCase):
             pth = tmp_path / "some_module.py"
             pth.write_text(text)
 
-            with sys_path_with(tmp_path):
+            with tests.common.sys_path_with(tmp_path):
                 errors = icontract_lint.check_paths(paths=[tmp_path])
                 self.assertEqual(1, len(errors))
 
