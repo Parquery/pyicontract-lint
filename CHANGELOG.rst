@@ -1,3 +1,7 @@
+2.1.2
+=====
+*  Fixed to accept snapshots with multiple args (#35)
+
 2.1.1
 =====
 * Started ignoring Astroid inference errors in decorators.
