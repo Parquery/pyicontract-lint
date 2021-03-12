@@ -35,6 +35,7 @@ class ErrorID(enum.Enum):
     SNAPSHOT_INVALID_ARG = "snapshot-invalid-arg"
     SNAPSHOT_WO_CAPTURE = "snapshot-wo-capture"
     SNAPSHOT_WO_POST = "snapshot-wo-post"
+    SNAPSHOT_WO_NAME = "snapshot-wo-name"
     POST_INVALID_ARG = "post-invalid-arg"
     POST_RESULT_NONE = "post-result-none"
     POST_RESULT_CONFLICT = "post-result-conflict"
@@ -275,14 +276,22 @@ class _LintVisitor(_AstroidVisitor):
         """
         # Find the ``capture=...`` node
         capture_node = None  # type: Optional[astroid.node_classes.NodeNG]
+        name_node = None  # type: Optional[astroid.node_classes.NodeNG]
 
-        if node.args and len(node.args) >= 1:
-            capture_node = node.args[0]
+        if node.args:
+            if len(node.args) >= 1:
+                capture_node = node.args[0]
 
-        if capture_node is None and node.keywords:
+            if len(node.args) >= 2:
+                name_node = node.args[1]
+
+        if node.keywords:
             for keyword_node in node.keywords:
                 if keyword_node.arg == "capture":
                     capture_node = keyword_node.value
+
+                if keyword_node.arg == "name":
+                    name_node = keyword_node.value
 
         if capture_node is None:
             self.errors.append(
@@ -305,26 +314,26 @@ class _LintVisitor(_AstroidVisitor):
             "Expected the inferred capture to be either a lambda or a function definition, but got: {}".format(
                 capture)
 
-        capture_args = capture.argnames()
+        capture_arg_set = set(capture.argnames())
 
-        if len(capture_args) > 1:
+        diff = capture_arg_set.difference(func_arg_set)
+
+        if diff:
             self.errors.append(
                 Error(
                     identifier=ErrorID.SNAPSHOT_INVALID_ARG,
-                    description="Snapshot capture function expects at most one argument, but got: {}".format(
-                        capture_args),
+                    description="Snapshot argument(s) are missing in the function signature: {}".format(
+                        ", ".join(sorted(diff))),
                     filename=self._filename,
                     lineno=node.lineno))
-            return
 
-        if len(capture_args) == 1 and capture_args[0] not in func_arg_set:
+        if len(capture_arg_set) > 1 and name_node is None:
             self.errors.append(
                 Error(
-                    identifier=ErrorID.SNAPSHOT_INVALID_ARG,
-                    description="Snapshot argument is missing in the function signature: {}".format(capture_args[0]),
+                    identifier=ErrorID.SNAPSHOT_WO_NAME,
+                    description="Snapshot involves multiple arguments, but its name has not been specified.",
                     filename=self._filename,
                     lineno=node.lineno))
-            return
 
     def _check_func_decorator(self, node: astroid.nodes.Call, decorator: astroid.bases.Instance, func_arg_set: Set[str],
                               func_has_result: bool) -> None:
