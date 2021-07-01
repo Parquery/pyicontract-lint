@@ -7,7 +7,7 @@ import pathlib
 import re
 import sys
 import traceback
-from typing import Set, List, Mapping, Optional, TextIO, Any
+from typing import Set, List, Mapping, Optional, TextIO, Any, Tuple
 
 import astroid
 import astroid.modutils
@@ -25,6 +25,13 @@ __author__ = pyicontract_lint_meta.__author__
 __author_email__ = pyicontract_lint_meta.__author_email__
 __license__ = pyicontract_lint_meta.__license__
 __copyright__ = pyicontract_lint_meta.__copyright__
+
+# noinspection PyBroadException
+try:
+    _ASTROID_VERSION_TUPLE = tuple(
+        int(part) for part in re.split('.', astroid.__version__))  # type: Optional[Tuple[int, ...]]
+except Exception:  # pylint: disable=broad-except
+    _ASTROID_VERSION_TUPLE = None
 
 
 class ErrorID(enum.Enum):
@@ -101,7 +108,17 @@ class _AstroidVisitor:
     If the visit function has not been defined, ``visit_generic`` is invoked.
     """
 
-    assert "generic" not in [cls.__class__.__name__ for cls in astroid.ALL_NODE_CLASSES]
+    if _ASTROID_VERSION_TUPLE is not None and _ASTROID_VERSION_TUPLE < (2, 6, 0):
+        _ALL_NODE_CLASSES = [cls.__class__.__name__ for cls in astroid.ALL_NODE_CLASSES]
+    else:
+        _ALL_NODE_CLASSES = [cls.__class__.__name__ for cls in astroid.nodes.ALL_NODE_CLASSES]
+
+    assert "generic" not in _ALL_NODE_CLASSES, \
+        (
+            "We need ``generic`` as reserved name for the visitor (``visit_generic``). "
+            "However, if there is a class in the astroid with the same name, it would break the visitor. "
+            "(The version of astroid is: {}.)".format(astroid.__version__)
+        )
 
     def visit(self, node: astroid.node_classes.NodeNG):
         """Enter the visitor."""
