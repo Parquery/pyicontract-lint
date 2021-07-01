@@ -1,4 +1,8 @@
 """Lint contracts defined with icontract library."""
+
+# pylint: disable=wrong-import-position
+# pylint: disable=no-name-in-module
+
 import collections
 import enum
 import json
@@ -7,7 +11,12 @@ import pathlib
 import re
 import sys
 import traceback
-from typing import Set, List, Mapping, Optional, TextIO, Any, Tuple
+from typing import Set, List, Optional, TextIO, cast, Tuple
+
+if sys.version_info >= (3, 8):
+    from typing import Final, TypedDict
+else:
+    from typing_extensions import Final, TypedDict
 
 import astroid
 import astroid.modutils
@@ -52,47 +61,57 @@ class ErrorID(enum.Enum):
     INVALID_SYNTAX = 'invalid-syntax'
 
 
+class _ErrorMappingRequired(TypedDict):
+    """Represent the required fields of an error given as a mapping."""
+
+    identifier: str  #: identifier of the error
+    description: str  #: verbose description of the error
+    filename: str  #: file name of the linted module
+
+
+class ErrorMapping(_ErrorMappingRequired, total=False):
+    """Represent an error given as a mapping."""
+
+    lineno: int
+
+
 @icontract.invariant(lambda self: len(self.description) > 0)
 @icontract.invariant(lambda self: len(self.filename) > 0)
 @icontract.invariant(lambda self: self.lineno is None or self.lineno >= 1)
 class Error:
-    """
-    Represent a linter error.
+    """Represent a linter error."""
 
-    :ivar identifier: identifier of the error
-    :vartype identifier: ErrorID
+    # pylint: disable=invalid-name
+    identifier: Final[ErrorID]  #: identifier of the error
 
-    :ivar description:
-        verbose description of the error including details about the cause (*e.g.*, the name of the invalid argument)
-    :vartype description: str
+    #: verbose description of the error including details about the cause (*e.g.*, the name of the invalid argument)
+    description: str
 
-    :ivar filename: file name of the linted module
-    :vartype filename: str
+    filename: str  #: file name of the linted module
+    lineno: Final[Optional[int]]  #: line number of the offending decorator
 
-    :ivar lineno: line number of the offending decorator
-    :vartype lineno: int
-
-    """
+    # pylint: enable=invalid-name
 
     @icontract.require(lambda description: len(description) > 0)
     @icontract.require(lambda filename: len(filename) > 0)
     @icontract.require(lambda lineno: lineno is None or lineno >= 1)
     def __init__(self, identifier: ErrorID, description: str, filename: str, lineno: Optional[int]) -> None:
-        """Initialize with the given properties."""
+        """Initialize with the given values."""
         self.identifier = identifier
         self.description = description
         self.filename = filename
         self.lineno = lineno
 
-    def as_mapping(self) -> Mapping[str, Any]:
+    def as_mapping(self) -> ErrorMapping:
         """Transform the error to a mapping that can be converted to JSON and similar formats."""
         # yapf: disable
-        result = collections.OrderedDict(
-            [
-                ("identifier", self.identifier.value),
-                ("description", str(self.description)),
-                ("filename", self.filename)
-            ])
+        result: ErrorMapping = cast(
+            ErrorMapping,
+            collections.OrderedDict([
+                ('identifier', str(self.identifier.value)),
+                ('description', self.description),
+                ('filename', self.filename)
+            ]))
         # yapf: enable
 
         if self.lineno is not None:
