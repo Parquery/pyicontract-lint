@@ -40,7 +40,12 @@ setup(
     license='License :: OSI Approved :: MIT License',
     keywords='design-by-contract precondition postcondition validation lint',
     packages=find_packages(exclude=['tests']),
-    install_requires=['icontract>=2.0.0,<3', 'astroid>=2.4.2,<3'],
+    install_requires=[
+        # yapf: disable
+        'icontract>=2.0.0,<3',
+        'astroid>=2.4.2,<3'
+        # yapf: enable
+    ],
     extras_require={
         'dev': [
             # yapf: disable
