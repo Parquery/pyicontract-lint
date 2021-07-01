@@ -1,8 +1,9 @@
 pyicontract-lint
 ================
-.. image:: https://travis-ci.com/Parquery/pyicontract-lint.svg?branch=master
-    :target: https://travis-ci.com/Parquery/pyicontract-lint
-    :alt: Build status
+
+.. image:: https://github.com/Parquery/pyicontract-lint/actions/workflows/ci.yml/badge.svg
+    :target: https://github.com/Parquery/pyicontract-lint/actions/workflows/ci.yml
+    :alt: Continuous integration
 
 .. image:: https://coveralls.io/repos/github/Parquery/pyicontract-lint/badge.svg?branch=master
     :target: https://coveralls.io/github/Parquery/pyicontract-lint
