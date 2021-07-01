@@ -5,6 +5,7 @@ https://packaging.python.org/en/latest/distributing.html
 https://github.com/pypa/sampleproject
 """
 import os
+import sys
 
 from setuptools import setup, find_packages
 
@@ -16,6 +17,16 @@ here = os.path.abspath(os.path.dirname(__file__))  # pylint: disable=invalid-nam
 
 with open(os.path.join(here, 'README.rst'), encoding='utf-8') as fid:
     long_description = fid.read()  # pylint: disable=invalid-name
+
+# yapf: disable
+install_requires = [
+    'icontract>=2.0.0,<3',
+    'astroid>=2.4.2,<3'
+]
+
+if sys.version_info < (3, 8):
+    # We need to install typing-extensions for TypedDict's, Final's *etc.*
+    install_requires.append('typing-extensions')
 
 setup(
     name=pyicontract_lint_meta.__title__,
@@ -40,17 +51,12 @@ setup(
     license='License :: OSI Approved :: MIT License',
     keywords='design-by-contract precondition postcondition validation lint',
     packages=find_packages(exclude=['tests']),
-    install_requires=[
-        # yapf: disable
-        'icontract>=2.0.0,<3',
-        'astroid>=2.4.2,<3'
-        # yapf: enable
-    ],
+    install_requires=install_requires,
     extras_require={
         'dev': [
             # yapf: disable
-            'mypy==0.782',
-            'pylint==2.6.0',
+            'mypy==0.910',
+            'pylint==2.9.2',
             'yapf==0.20.2',
             'tox>=3.0.0',
             'pydocstyle>=2.1.1,<3',
