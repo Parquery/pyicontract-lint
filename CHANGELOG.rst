@@ -1,19 +1,27 @@
+2.1.3
+=====
+* Added support for astroid ≥ 2.6.0 (#38)
+* Dropped support for Python 3.5 (#40)
+* Upgraded mypy to 0.910 and pylint to 2.9.2 (#42)
+
+  This patch also includes introduction of ``Final`` and ``TypedDict`` for more precise type annotations.
+
 2.1.2
 =====
 *  Fixed to accept snapshots with multiple args (#35)
 
 2.1.1
 =====
-* Started ignoring Astroid inference errors in decorators.
+* Started ignoring Astroid inference errors in decorators (#28)
 
   This is critical so that files can be processed even though Astroid
   fails to correctly infer all the decorators.
 
 2.1.0
 =====
-* Made handling of paths platform-dependent
-* Introduced graceful handling of read and parse failures
-* Added output on no errors if verbose
+* Made handling of paths platform-dependent (#22)
+* Introduced graceful handling of read and parse failures (#24)
+* Added output on no errors if verbose (#25)
 
 2.0.1
 =====
