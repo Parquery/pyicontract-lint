@@ -11,7 +11,7 @@ import pathlib
 import re
 import sys
 import traceback
-from typing import Set, List, Optional, TextIO, cast, Tuple
+from typing import Set, List, Optional, TextIO, cast, Tuple, Any
 
 if sys.version_info >= (3, 8):
     from typing import Final, TypedDict
@@ -410,17 +410,20 @@ class _LintVisitor(_AstroidVisitor):
         # annotated with None.
         func_has_result = True
 
-        if node.returns is not None:
-            try:
-                inferred_returns = next(node.returns.infer())
-
-                if isinstance(inferred_returns, astroid.nodes.Const):
-                    if inferred_returns.value is None:
-                        func_has_result = False
-
-            except astroid.exceptions.NameInferenceError:
-                # Ignore uninferrable returns
-                pass
+        if node.returns is None:
+            # If no return annotation is specified, we assume that it has a result.
+            # We could use ``node.infer_call_result()`` to infer the result (see
+            # https://github.com/PyCQA/astroid/issues/1134), but that *could* lead to quite
+            # confusing false positives.
+            assert func_has_result, "Assume there is a result if there is no returns annotation."
+        else:
+            # Do not use ``node.returns.infer()`` as it causes problems with Python <3.10.
+            # See: https://github.com/Parquery/pyicontract-lint/issues/44 and
+            # https://github.com/PyCQA/astroid/issues/1134.
+            #
+            # We use ``node.returns.value`` instead, since it is the easiest way to check for
+            # ``... -> None`` annotation.
+            func_has_result = not (isinstance(node.returns, astroid.Const) and node.returns.value is None)
 
         # Infer the decorator instances
 
