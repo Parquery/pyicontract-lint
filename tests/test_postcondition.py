@@ -73,7 +73,48 @@ class TestPostcondition(unittest.TestCase):
             with tests.common.sys_path_with(tmp_path):
                 self.assertListEqual([], icontract_lint.check_file(path=pth))
 
-    def test_result_none(self):
+    def test_that_it_accepts_result_annotated_with_pep_585(self):
+        text = textwrap.dedent("""\
+            from icontract import ensure
+
+            @ensure(lambda result: len(result) > 0)
+            def some_func() -> list[int]:
+                return [1, 2, 3]
+            """)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+
+            pth = tmp_path / "some_module.py"
+            pth.write_text(text)
+
+            with tests.common.sys_path_with(tmp_path):
+                self.assertListEqual([], icontract_lint.check_file(path=pth))
+
+    def test_result_none_without_annotation_ignored_though_invalid(self):
+        # If the annotation is missing, we err on the side of the false negatives.
+        #
+        # Though we could use astroid to infer that the result is None, the error messages
+        # would be very confusing in the cases of false positives. Hence we ignore functions
+        # without the explicit annotation for the return value.
+        text = textwrap.dedent("""\
+            from icontract import ensure
+
+            @ensure(lambda result: result > 0)
+            def some_func(x: int):
+                pass
+            """)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+
+            pth = tmp_path / "some_module.py"
+            pth.write_text(text)
+
+            with tests.common.sys_path_with(tmp_path):
+                self.assertListEqual([], icontract_lint.check_file(path=pth))
+
+    def test_result_none_with_explicit_annotation(self):
         text = textwrap.dedent("""\
             from icontract import ensure
 
