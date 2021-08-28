@@ -1,3 +1,7 @@
+2.1.4
+=====
+* Simplified inference on ``None`` returns (#45)
+
 2.1.3
 =====
 * Added support for astroid ≥ 2.6.0 (#38)
